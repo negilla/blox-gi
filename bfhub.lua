@@ -1,7 +1,7 @@
 --[[
     EBANAT HUB | BLOX FRUITS
-    Version: 5.2.0 — Delta Compatible
-    Added: Sea teleport buttons, fixed chest ESP cleanup
+    Version: 5.3.0 — Delta Compatible
+    Fixed: Auto farm flies to mobs, fast attack works, chest ESP fixed
 ]]
 
 local gethui = gethui or function() return game:GetService("CoreGui") end
@@ -198,7 +198,7 @@ VersionBadge.Size = UDim2.new(0, 56, 0, 22)
 VersionBadge.Position = UDim2.new(0, 168, 0.5, -11)
 VersionBadge.BackgroundColor3 = Theme.Card
 VersionBadge.BorderSizePixel = 0
-VersionBadge.Text = "v5.2"
+VersionBadge.Text = "v5.3"
 VersionBadge.TextColor3 = Theme.AccentLight
 VersionBadge.Font = Enum.Font.GothamMedium
 VersionBadge.TextSize = 10
@@ -943,7 +943,6 @@ local Config = {
 
 -- BACKEND
 local Character, Humanoid, RootPart
-local ActiveTween = nil
 
 local function refreshCharacter()
     Character = LocalPlayer.Character
@@ -980,15 +979,14 @@ local function getCommE()
     return CommE
 end
 
-local function stopMovement()
-    if ActiveTween then pcall(function() ActiveTween:Cancel() end); ActiveTween = nil end
-end
-
 local function teleportTo(pos)
     if not RootPart then return end
     RootPart.CFrame = CFrame.new(pos)
 end
 
+-- ============================================================
+-- QUEST DATA
+-- ============================================================
 local Quests = {
     [1]={Name="Trainee",Mob="Bandit",Pos=Vector3.new(1059,16,1548)},
     [8]={Name="Monkey",Mob="Monkey",Pos=Vector3.new(-1591,37,167)},
@@ -1072,37 +1070,51 @@ local function getClosestMob(targetName)
     return closest
 end
 
-local function bringMob(mob)
-    if not mob or not mob:FindFirstChild("HumanoidRootPart") then return end
-    pcall(function()
-        mob.HumanoidRootPart.CFrame = RootPart.CFrame * CFrame.new(0, 0, -10)
-        mob.HumanoidRootPart.CanCollide = false
-        if mob:FindFirstChild("Humanoid") then
-            pcall(function() mob.Humanoid.WalkSpeed = 0; mob.Humanoid.JumpPower = 0 end)
-        end
-    end)
-end
-
+-- ============================================================
+-- ATTACK SYSTEM — COMPLETELY REWRITTEN
+-- ============================================================
 local lastAttack = 0
+local lastM1 = 0
+
 local function attackMob(mob)
-    if not mob or not mob:FindFirstChild("HumanoidRootPart") then return end
+    if not mob then return end
+    if not mob:FindFirstChild("HumanoidRootPart") then return end
     if not RootPart then return end
+    
     local mobPos = mob.HumanoidRootPart.Position
     local myPos = RootPart.Position
     local commE = getCommE()
+    
+    -- Method 1: Fire CommE_ with mob position (primary attack)
     if commE then
-        pcall(function() commE:FireServer(mobPos) end)
-        pcall(function() commE:FireServer(mobPos, CFrame.new(myPos, mobPos)) end)
-    end
-    if Config.FastAttack then
         pcall(function()
-            VirtualInputManager:SendMouseButtonEvent(0, 0, 0, true, game, 1)
-            task.wait(0.02)
-            VirtualInputManager:SendMouseButtonEvent(0, 0, 0, false, game, 1)
+            commE:FireServer(mobPos)
         end)
     end
-    if Config.SuperEffective then
+    
+    -- Method 2: Fast Attack - fire CommE_ multiple times + M1 clicks
+    if Config.FastAttack then
+        -- Fire CommE_ extra times for faster attacks
+        if commE then
+            pcall(function()
+                commE:FireServer(mobPos)
+            end)
+        end
+        
+        -- Simulate M1 mouse click (rate limited to avoid lag)
         local now = tick()
+        if now - lastM1 > 0.05 then
+            lastM1 = now
+            pcall(function()
+                VirtualInputManager:SendMouseButtonEvent(0, 0, 0, true, game, 1)
+                task.wait(0.01)
+                VirtualInputManager:SendMouseButtonEvent(0, 0, 0, false, game, 1)
+            end)
+        end
+    end
+    
+    -- Method 3: Super Effective - use all skills
+    if Config.SuperEffective then
         if now - lastAttack > 1 then
             lastAttack = now
             for _, key in pairs({"Z", "X", "C", "V", "F"}) do
@@ -1116,6 +1128,31 @@ local function attackMob(mob)
     end
 end
 
+-- ============================================================
+-- MOB BRING — keep as option
+-- ============================================================
+local function bringMob(mob)
+    if not mob or not mob:FindFirstChild("HumanoidRootPart") then return end
+    pcall(function()
+        mob.HumanoidRootPart.CFrame = RootPart.CFrame * CFrame.new(0, 0, -10)
+        mob.HumanoidRootPart.CanCollide = false
+        if mob:FindFirstChild("Humanoid") then
+            pcall(function() mob.Humanoid.WalkSpeed = 0; mob.Humanoid.JumpPower = 0 end)
+        end
+    end)
+end
+
+-- ============================================================
+-- FLY TO MOB — NEW: player flies to mob position
+-- ============================================================
+local function flyToMob(mob)
+    if not mob or not mob:FindFirstChild("HumanoidRootPart") then return end
+    if not RootPart then return end
+    -- Position player near the mob, facing it
+    local mobPos = mob.HumanoidRootPart.Position
+    RootPart.CFrame = CFrame.new(mobPos + Vector3.new(0, 5, 0), mobPos)
+end
+
 local function hasActiveQuest()
     local questGui = LocalPlayer:FindFirstChild("PlayerGui")
     if questGui then
@@ -1125,15 +1162,16 @@ local function hasActiveQuest()
     return false
 end
 
--- CHEST DETECTION — checks if part still exists and is visible
+-- ============================================================
+-- CHEST DETECTION — removed transparency check
+-- ============================================================
 local function findAllChests()
     local chests = {}
     local function checkObj(obj)
         if obj.Name:lower():match("chest") then
             local part = obj:FindFirstChildWhichIsA("BasePart")
             if not part and obj:IsA("BasePart") then part = obj end
-            -- Only add if part exists and is not fully transparent
-            if part and part.Transparency < 1 then
+            if part then
                 table.insert(chests, {Model = obj, Part = part, Pos = part.Position})
             end
         end
@@ -1184,7 +1222,7 @@ local function hopServer()
     end
 end
 
--- SEA TELEPORT — uses TeleportService to jump between place IDs
+-- SEA TELEPORT
 local SeaPlaceIds = {
     ["First Sea"] = 2753915549,
     ["Second Sea"] = 4442272183,
@@ -1195,12 +1233,12 @@ local function teleportToSea(seaName)
     local placeId = SeaPlaceIds[seaName]
     if not placeId then return end
     notify("Teleport", "Teleporting to " .. seaName .. "...", 3, "warning")
-    pcall(function()
-        TeleportService:Teleport(placeId, LocalPlayer)
-    end)
+    pcall(function() TeleportService:Teleport(placeId, LocalPlayer) end)
 end
 
--- ESP SYSTEM
+-- ============================================================
+-- ESP SYSTEM — fixed chest cleanup
+-- ============================================================
 local function createESPManager(espType, color, getTextFunc)
     local manager = { Type = espType, Color = color, Enabled = false, Tracked = {}, GetText = getTextFunc or function() return espType end }
     function manager:Disable()
@@ -1246,11 +1284,11 @@ local function createESPManager(espType, color, getTextFunc)
             self.Tracked[obj] = nil
         end
     end
-    function manager:Update(getTargetsFunc, isValidFunc)
+    function manager:Update(getTargetsFunc)
         if not self.Enabled then return end
-        -- Remove invalid objects
+        -- Remove dead objects (obj.Parent is nil when destroyed)
         for obj, _ in pairs(self.Tracked) do
-            if not obj.Parent or (isValidFunc and not isValidFunc(obj)) then
+            if not obj.Parent then
                 self:Remove(obj)
             end
         end
@@ -1288,16 +1326,6 @@ local PlayerESP = createESPManager("Player", Color3.fromRGB(100, 255, 100), func
     return plr and plr.Name or "Player"
 end)
 
--- Chest validity check: part exists and is visible
-local function isChestValid(obj)
-    if not obj or not obj.Parent then return false end
-    local part = obj:FindFirstChildWhichIsA("BasePart")
-    if not part and obj:IsA("BasePart") then part = obj end
-    if not part then return false end
-    if part.Transparency >= 1 then return false end
-    return true
-end
-
 local IslandBillboards = {}
 do
     local islands = {
@@ -1327,7 +1355,7 @@ do
     end
 end
 
--- ESP update loop — with chest validity check
+-- ESP update loop
 task.spawn(function()
     while true do
         task.wait(0.5)
@@ -1341,13 +1369,12 @@ task.spawn(function()
                     return t
                 end)
             end
-            -- CHEST ESP FIX: pass isValidFunc to check if chest is still valid
             if ChestESP.Enabled then
                 ChestESP:Update(function()
                     local t = {}
                     for _, c in pairs(findAllChests()) do table.insert(t, c.Model) end
                     return t
-                end, isChestValid)
+                end)
             end
             if MobESP.Enabled then
                 MobESP:Update(function()
@@ -1377,7 +1404,7 @@ task.spawn(function()
     end
 end)
 
--- THREE SEAS ISLAND TELEPORT DATA
+-- THREE SEAS
 local SeaIslands = {
     ["First Sea"] = {
         {"Windmill Village", Vector3.new(1059, 16, 1548)}, {"Jungle", Vector3.new(-1591, 37, 167)},
@@ -1412,18 +1439,22 @@ local SeaIslands = {
 -- FARM
 local FarmTab = createTab("Farm", "S")
 FarmTab:Section("Combat")
-FarmTab:Toggle("Auto Farm", "Farms nearest mobs for XP", false, function(state)
+FarmTab:Toggle("Auto Farm", "Flies to mobs and attacks them", false, function(state)
     Config.AutoFarm = state
-    if not state then stopMovement() end
     notify("Auto Farm", state and "Enabled" or "Disabled", 2, state and "success" or "warning")
 end)
 FarmTab:Toggle("Auto Quest", "Auto accepts best quest (instant teleport)", false, function(state)
     Config.AutoQuest = state
-    if not state then stopMovement() end
 end)
-FarmTab:Toggle("Fast Attack", "Uses fast attack method", true, function(state) Config.FastAttack = state end)
-FarmTab:Toggle("Super Effective", "Uses all skills (Z,X,C,V,F)", false, function(state) Config.SuperEffective = state end)
-FarmTab:Toggle("Bring Mobs", "Teleports mobs to you", true, function(state) Config.BringMobs = state end)
+FarmTab:Toggle("Fast Attack", "Faster attack speed via CommE + M1 spam", true, function(state)
+    Config.FastAttack = state
+end)
+FarmTab:Toggle("Super Effective", "Uses all skills (Z,X,C,V,F)", false, function(state)
+    Config.SuperEffective = state
+end)
+FarmTab:Toggle("Bring Mobs", "Teleports mobs to you instead of flying", true, function(state)
+    Config.BringMobs = state
+end)
 FarmTab:Dropdown("Attack Method", {"M1", "Skill", "Both"}, "Both", function(opt) Config.AttackMethod = opt end)
 FarmTab:Section("Combat Utilities")
 FarmTab:Toggle("Kill Aura", "Attacks all nearby mobs", false, function(state)
@@ -1435,12 +1466,11 @@ FarmTab:Section("Quick Actions")
 FarmTab:Button("Stop All Actions", function()
     Config.AutoFarm = false; Config.AutoQuest = false; Config.AutoChests = false
     Config.AutoFruits = false; Config.AutoStats = false; Config.AutoHop = false; Config.KillAura = false
-    stopMovement()
     notify("Stopped", "All actions cancelled", 2, "warning")
 end)
 FarmTab:Button("Farm Nearest Mob", function()
     local mob = getClosestMob()
-    if mob then bringMob(mob); attackMob(mob); notify("Farm", "Attacking " .. mob.Name, 2)
+    if mob then flyToMob(mob); attackMob(mob); notify("Farm", "Attacking " .. mob.Name, 2)
     else notify("Farm", "No mobs found", 2, "warning") end
 end)
 FarmTab:Button("Take Best Quest", function()
@@ -1456,17 +1486,22 @@ end)
 FarmTab:Button("Rejoin Server", function() TeleportService:Teleport(game.PlaceId, LocalPlayer) end)
 FarmTab:Button("Server Hop", function() hopServer() end)
 FarmTab:Section("Info")
-FarmTab:Label("Ebanat Hub v5.2.0 - Built by ENI")
+FarmTab:Label("Ebanat Hub v5.3.0 - Built by ENI")
 FarmTab:Label("Press RightShift to toggle UI")
 
+-- ============================================================
+-- AUTO FARM LOOP — REWRITTEN: flies to mobs + attacks
+-- ============================================================
 task.spawn(function()
     while true do
-        task.wait(0.1)
+        task.wait(0.05)
         if Config.AutoFarm then
             pcall(function()
                 if not RootPart or not RootPart.Parent then refreshCharacter(); return end
                 local quest = getBestQuest()
                 if not quest then return end
+
+                -- Auto quest
                 if Config.AutoQuest and not hasActiveQuest() then
                     teleportTo(quest.Pos)
                     task.wait(0.3)
@@ -1476,9 +1511,18 @@ task.spawn(function()
                     task.wait(0.5)
                     return
                 end
+
+                -- Find mob
                 local mob = getClosestMob(quest.Mob) or getClosestMob(nil)
                 if mob then
-                    if Config.BringMobs then bringMob(mob) end
+                    if Config.BringMobs then
+                        -- Bring mob to player
+                        bringMob(mob)
+                    else
+                        -- Fly player to mob
+                        flyToMob(mob)
+                    end
+                    -- Attack the mob
                     attackMob(mob)
                 end
             end)
@@ -1486,9 +1530,10 @@ task.spawn(function()
     end
 end)
 
+-- Kill Aura loop
 task.spawn(function()
     while true do
-        task.wait(0.1)
+        task.wait(0.05)
         if Config.KillAura and RootPart then
             pcall(function()
                 local enemies = Workspace:FindFirstChild("Enemies")
@@ -1499,7 +1544,6 @@ task.spawn(function()
                             if mobRoot then
                                 local dist = (RootPart.Position - mobRoot.Position).Magnitude
                                 if dist <= Config.AuraRange then
-                                    bringMob(mob)
                                     attackMob(mob)
                                 end
                             end
@@ -1516,7 +1560,6 @@ local ChestTab = createTab("Chests", "$")
 ChestTab:Section("Auto Chest Farm")
 ChestTab:Toggle("Auto Collect Chests", "Teleports to and collects all chests", false, function(state)
     Config.AutoChests = state
-    if not state then stopMovement() end
     notify("Chest Farm", state and "Enabled" or "Disabled", 2, state and "success" or "warning")
 end)
 ChestTab:Slider("Collection Delay", 0, 5, 0.5, "s", function(val) Config.ChestDelay = val end)
@@ -1569,7 +1612,6 @@ local FruitsTab = createTab("Fruits", "F")
 FruitsTab:Section("Fruit Collection")
 FruitsTab:Toggle("Auto Farm Fruits", "Collects spawned devil fruits", false, function(state)
     Config.AutoFruits = state
-    if not state then stopMovement() end
     notify("Fruit Farm", state and "Enabled" or "Disabled", 2, state and "success" or "warning")
 end)
 FruitsTab:Toggle("Auto Store Fruits", "Stores collected fruits in inventory", false, function(state)
@@ -1736,20 +1778,12 @@ ESPTab:Button("Clear All ESP", function()
     notify("ESP", "All ESP cleared", 2, "warning")
 end)
 
--- TELEPORT — WITH SEA TELEPORT BUTTONS AT TOP
+-- TELEPORT
 local TeleportTab = createTab("Teleport", "T")
--- SEA TELEPORT BUTTONS FIRST
 TeleportTab:Section("World Teleport (Instant)")
-TeleportTab:Button("Teleport to First Sea", function()
-    teleportToSea("First Sea")
-end)
-TeleportTab:Button("Teleport to Second Sea", function()
-    teleportToSea("Second Sea")
-end)
-TeleportTab:Button("Teleport to Third Sea", function()
-    teleportToSea("Third Sea")
-end)
--- ISLAND TELEPORTS
+TeleportTab:Button("Teleport to First Sea", function() teleportToSea("First Sea") end)
+TeleportTab:Button("Teleport to Second Sea", function() teleportToSea("Second Sea") end)
+TeleportTab:Button("Teleport to Third Sea", function() teleportToSea("Third Sea") end)
 for seaName, islands in pairs(SeaIslands) do
     TeleportTab:Section(seaName)
     for _, island in pairs(islands) do
@@ -1845,4 +1879,4 @@ end)
 task.wait(0.3)
 notify("Ebanat Hub", "Welcome, " .. LocalPlayer.Name .. "!", 4, "success")
 task.wait(1)
-notify("Loaded", "v5.2 - All systems operational", 3, "success")
+notify("Loaded", "v5.3 - All systems operational", 3, "success")
