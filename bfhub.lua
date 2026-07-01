@@ -1,7 +1,7 @@
 --[[
     EBANAT HUB | BLOX FRUITS
-    Version: 2.0.0 — Delta Compatible
-    Fixed: Remote paths, Third Sea quests, attack system, mob bringing
+    Version: 3.0.0 — Delta Compatible
+    Fixed: Cancellable actions, chest detection, ESP system, scrolling, 3 seas teleport
 ]]
 
 -- ============================================================
@@ -110,8 +110,7 @@ local function ripple(parent, x, y)
     r.Parent = parent
     corner(r, 999)
     local tw = TweenService:Create(r, TweenInfo.new(0.5, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
-        Size = UDim2.new(0, 400, 0, 400),
-        BackgroundTransparency = 1,
+        Size = UDim2.new(0, 400, 0, 400), BackgroundTransparency = 1,
     })
     tw:Play()
     tw.Completed:Connect(function() r:Destroy() end)
@@ -132,11 +131,11 @@ UIScale.Scale = 1
 UIScale.Parent = ScreenGui
 
 -- ============================================================
--- MAIN WINDOW
+-- MAIN WINDOW — slightly larger
 -- ============================================================
 local Window = Instance.new("Frame")
-Window.Size = UDim2.new(0, 640, 0, 420)
-Window.Position = UDim2.new(0.5, -320, 0.5, -210)
+Window.Size = UDim2.new(0, 680, 0, 460)
+Window.Position = UDim2.new(0.5, -340, 0.5, -230)
 Window.BackgroundColor3 = Theme.Background
 Window.BorderSizePixel = 0
 Window.Parent = ScreenGui
@@ -219,7 +218,7 @@ VersionBadge.Size = UDim2.new(0, 56, 0, 22)
 VersionBadge.Position = UDim2.new(0, 168, 0.5, -11)
 VersionBadge.BackgroundColor3 = Theme.Card
 VersionBadge.BorderSizePixel = 0
-VersionBadge.Text = "v2.0"
+VersionBadge.Text = "v3.0"
 VersionBadge.TextColor3 = Theme.AccentLight
 VersionBadge.Font = Enum.Font.GothamMedium
 VersionBadge.TextSize = 10
@@ -263,9 +262,9 @@ MinimizeBtn.MouseButton1Click:Connect(function()
     ripple(MinimizeBtn, 14, 14)
     minimized = not minimized
     if minimized then
-        TweenService:Create(Window, TweenInfo.new(0.3), {Size = UDim2.new(0, 640, 0, 44)}):Play()
+        TweenService:Create(Window, TweenInfo.new(0.3), {Size = UDim2.new(0, 680, 0, 44)}):Play()
     else
-        TweenService:Create(Window, TweenInfo.new(0.3), {Size = UDim2.new(0, 640, 0, 420)}):Play()
+        TweenService:Create(Window, TweenInfo.new(0.3), {Size = UDim2.new(0, 680, 0, 460)}):Play()
     end
 end)
 
@@ -305,13 +304,16 @@ UserInputService.InputEnded:Connect(function(input)
 end)
 
 -- ============================================================
--- TAB BAR + CONTENT
+-- TAB BAR — horizontal scrolling frame
 -- ============================================================
-local TabBar = Instance.new("Frame")
+local TabBar = Instance.new("ScrollingFrame")
 TabBar.Size = UDim2.new(1, -24, 0, 36)
 TabBar.Position = UDim2.new(0, 12, 0, 50)
 TabBar.BackgroundColor3 = Theme.BackgroundLight
 TabBar.BorderSizePixel = 0
+TabBar.ScrollBarThickness = 0
+TabBar.CanvasSize = UDim2.new(0, 0, 0, 0)
+TabBar.ScrollingDirection = Enum.ScrollingDirection.X
 TabBar.Parent = Window
 corner(TabBar, 8)
 
@@ -327,6 +329,9 @@ TabList.Padding = UDim.new(0, 4)
 TabList.SortOrder = Enum.SortOrder.LayoutOrder
 TabList.Parent = TabContainer
 
+-- ============================================================
+-- CONTENT AREA — fixed sizing
+-- ============================================================
 local ContentArea = Instance.new("Frame")
 ContentArea.Size = UDim2.new(1, -24, 1, -98)
 ContentArea.Position = UDim2.new(0, 12, 0, 92)
@@ -348,13 +353,13 @@ TabIndicator.Parent = TabBar
 corner(TabIndicator, 1)
 
 -- ============================================================
--- TAB CREATION
+-- TAB CREATION — with FIXED scrolling
 -- ============================================================
 local function createTab(name, icon)
     tabIndex = tabIndex + 1
 
     local tabBtn = Instance.new("TextButton")
-    tabBtn.Size = UDim2.new(0, 100, 1, 0)
+    tabBtn.Size = UDim2.new(0, 76, 1, 0)
     tabBtn.BackgroundColor3 = Theme.BackgroundLight
     tabBtn.BorderSizePixel = 0
     tabBtn.Text = ""
@@ -365,22 +370,22 @@ local function createTab(name, icon)
 
     local tabIcon = Instance.new("TextLabel")
     tabIcon.Size = UDim2.new(0, 18, 1, 0)
-    tabIcon.Position = UDim2.new(0, 10, 0, 0)
+    tabIcon.Position = UDim2.new(0, 8, 0, 0)
     tabIcon.BackgroundTransparency = 1
     tabIcon.Text = icon or ""
     tabIcon.TextColor3 = Theme.TextDim
     tabIcon.Font = Enum.Font.GothamBold
-    tabIcon.TextSize = 12
+    tabIcon.TextSize = 11
     tabIcon.Parent = tabBtn
 
     local tabLabel = Instance.new("TextLabel")
-    tabLabel.Size = UDim2.new(1, -36, 1, 0)
-    tabLabel.Position = UDim2.new(0, 30, 0, 0)
+    tabLabel.Size = UDim2.new(1, -28, 1, 0)
+    tabLabel.Position = UDim2.new(0, 26, 0, 0)
     tabLabel.BackgroundTransparency = 1
     tabLabel.Text = name
     tabLabel.TextColor3 = Theme.TextDim
     tabLabel.Font = Enum.Font.GothamMedium
-    tabLabel.TextSize = 12
+    tabLabel.TextSize = 11
     tabLabel.TextXAlignment = Enum.TextXAlignment.Left
     tabLabel.Parent = tabBtn
 
@@ -391,7 +396,7 @@ local function createTab(name, icon)
     page.ScrollBarThickness = 3
     page.ScrollBarImageColor3 = Theme.Accent
     page.CanvasSize = UDim2.new(0, 0, 0, 0)
-    page.AutomaticCanvasSize = Enum.AutomaticSize.Y
+    page.AutomaticCanvasSize = Enum.AutomaticSize.None
     page.Visible = false
     page.Parent = ContentArea
     pad(page, 0, 0, 0, 4)
@@ -401,8 +406,18 @@ local function createTab(name, icon)
     pageLayout.SortOrder = Enum.SortOrder.LayoutOrder
     pageLayout.Parent = page
 
+    -- CRITICAL FIX: Manual CanvasSize update
+    pageLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+        page.CanvasSize = UDim2.new(0, 0, 0, pageLayout.AbsoluteContentSize + 12)
+    end)
+
     Pages[name] = page
     TabButtons[name] = { Button = tabBtn, Icon = tabIcon, Label = tabLabel }
+
+    -- Update tab bar canvas size
+    TabList:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+        TabBar.CanvasSize = UDim2.new(0, TabList.AbsoluteContentSize + 8, 0, 0)
+    end)
 
     local function selectTab()
         for tabName, tabData in pairs(TabButtons) do
@@ -463,7 +478,6 @@ local function createTab(name, icon)
         label.TextSize = 11
         label.TextXAlignment = Enum.TextXAlignment.Left
         label.Parent = section
-        pad(section, 0, 0, 2, 2)
         return self
     end
 
@@ -923,22 +937,8 @@ local function notify(title, message, duration, notifType)
     msgLabel.TextXAlignment = Enum.TextXAlignment.Left
     msgLabel.Parent = notif
 
-    local progressBg = Instance.new("Frame")
-    progressBg.Size = UDim2.new(1, 0, 0, 2)
-    progressBg.Position = UDim2.new(0, 0, 1, -2)
-    progressBg.BackgroundColor3 = Theme.Divider
-    progressBg.BorderSizePixel = 0
-    progressBg.Parent = notif
-
-    local progressFill = Instance.new("Frame")
-    progressFill.Size = UDim2.new(1, 0, 1, 0)
-    progressFill.BackgroundColor3 = color
-    progressFill.BorderSizePixel = 0
-    progressFill.Parent = progressBg
-
     notif.Size = UDim2.new(0, 0, 0, 56)
     TweenService:Create(notif, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Size = UDim2.new(1, 0, 0, 56)}):Play()
-    TweenService:Create(progressFill, TweenInfo.new(duration, Enum.EasingStyle.Linear), {Size = UDim2.new(0, 0, 1, 0)}):Play()
 
     task.delay(duration, function()
         TweenService:Create(notif, TweenInfo.new(0.3), {Size = UDim2.new(0, 0, 0, 56), BackgroundTransparency = 1}):Play()
@@ -951,39 +951,27 @@ end
 -- CONFIG
 -- ============================================================
 local Config = {
-    AutoFarm = false,
-    AutoQuest = false,
-    FastAttack = true,
-    BringMobs = true,
-    AttackMethod = "Both",
-    TweenSpeed = 200,
-    AutoChests = false,
-    AutoFruits = false,
-    AutoStoreFruits = false,
-    AutoBuyFruit = false,
-    SelectedFruit = "Dragon",
-    AutoStats = false,
-    MeleePts = 25, DefensePts = 25, SwordPts = 25, GunPts = 0, FruitPts = 25,
-    AutoHop = false,
-    HopMinPlayers = 5,
-    AntiAFK = true,
-    KillAura = false,
-    AuraRange = 50,
-    UIScale = 1,
-    SelectedTheme = "Purple",
-    SuperEffective = false,
+    AutoFarm = false, AutoQuest = false, FastAttack = true, BringMobs = true,
+    AttackMethod = "Both", TweenSpeed = 200, SuperEffective = false,
+    AutoChests = false, AutoFruits = false, AutoStoreFruits = false,
+    AutoBuyFruit = false, SelectedFruit = "Dragon",
+    AutoStats = false, MeleePts = 25, DefensePts = 25, SwordPts = 25, GunPts = 0, FruitPts = 25,
+    AutoHop = false, HopMinPlayers = 5,
+    AntiAFK = true, KillAura = false, AuraRange = 50,
+    UIScale = 1, SelectedTheme = "Purple",
+    -- ESP
+    FruitESP = false, ChestESP = false, IslandESP = false, MobESP = false, PlayerESP = false,
 }
 
 -- ============================================================
--- BLOX FRUITS BACKEND — FIXED v2.0
+-- BLOX FRUITS BACKEND
 -- ============================================================
 local Character, Humanoid, RootPart
+local ActiveTween = nil
 
 local function refreshCharacter()
     Character = LocalPlayer.Character
-    if not Character then
-        Character = LocalPlayer.CharacterAdded:Wait()
-    end
+    if not Character then Character = LocalPlayer.CharacterAdded:Wait() end
     Humanoid = Character:WaitForChild("Humanoid", 5)
     RootPart = Character:WaitForChild("HumanoidRootPart", 5)
 end
@@ -996,13 +984,9 @@ LocalPlayer.CharacterAdded:Connect(function(char)
 end)
 pcall(refreshCharacter)
 
--- CRITICAL FIX: Remotes path detection
--- In Blox Fruits, CommF_ and CommE_ live inside ReplicatedStorage.Remotes
 local Remotes = ReplicatedStorage:WaitForChild("Remotes", 10)
 local CommF = Remotes and Remotes:FindFirstChild("CommF_")
 local CommE = Remotes and Remotes:FindFirstChild("CommE_")
-
--- Fallback: check if they're directly in ReplicatedStorage (older versions)
 if not CommF then CommF = ReplicatedStorage:FindFirstChild("CommF_") end
 if not CommE then CommE = ReplicatedStorage:FindFirstChild("CommE_") end
 
@@ -1020,27 +1004,41 @@ local function getCommE()
     return CommE
 end
 
--- Tween function
+-- CRITICAL FIX: stopMovement function to cancel tweens
+local function stopMovement()
+    if ActiveTween then
+        pcall(function() ActiveTween:Cancel() end)
+        ActiveTween = nil
+    end
+end
+
+-- Non-blocking tween (for manual actions only)
 local function tweenTo(pos, speed)
     speed = speed or Config.TweenSpeed
-    if not RootPart then refreshCharacter() end
     if not RootPart then return end
+    stopMovement()
     local dist = (RootPart.Position - pos).Magnitude
     if dist < 15 then
         RootPart.CFrame = CFrame.new(pos)
         return
     end
     local info = TweenInfo.new(dist / speed, Enum.EasingStyle.Linear)
-    local tw = TweenService:Create(RootPart, info, {CFrame = CFrame.new(pos)})
-    tw:Play()
-    tw.Completed:Wait()
+    ActiveTween = TweenService:Create(RootPart, info, {CFrame = CFrame.new(pos)})
+    ActiveTween:Play()
+    ActiveTween.Completed:Wait()
+    ActiveTween = nil
+end
+
+-- Instant teleport (for auto loops — cancellable)
+local function teleportTo(pos)
+    if not RootPart then return end
+    RootPart.CFrame = CFrame.new(pos)
 end
 
 -- ============================================================
 -- QUEST DATA — ALL THREE SEAS
 -- ============================================================
 local Quests = {
-    -- FIRST SEA
     [1]    = {Name = "Trainee",           Mob = "Bandit",               Pos = Vector3.new(1059, 16, 1548)},
     [8]    = {Name = "Monkey",            Mob = "Monkey",               Pos = Vector3.new(-1591, 37, 167)},
     [15]   = {Name = "Gorilla",           Mob = "Gorilla",              Pos = Vector3.new(-1233, 6, -504)},
@@ -1064,7 +1062,6 @@ local Quests = {
     [575]  = {Name = "Pirate Millionaire",Mob = "Pirate Millionaire",   Pos = Vector3.new(-1946, 100, -8346)},
     [625]  = {Name = "Galley Captain",    Mob = "Galley Captain",       Pos = Vector3.new(-1810, 100, -8543)},
     [700]  = {Name = "Island Empress",    Mob = "Island Empress",       Pos = Vector3.new(-13500, 285, -9600)},
-    -- SECOND SEA
     [850]  = {Name = "Forest Pirate",     Mob = "Forest Pirate",        Pos = Vector3.new(-13425, 367, -9450)},
     [900]  = {Name = "Mythological Pirate",Mob = "Mythological Pirate", Pos = Vector3.new(-13493, 370, -9490)},
     [1000] = {Name = "Jungle Pirate",     Mob = "Jungle Pirate",        Pos = Vector3.new(-13300, 370, -9400)},
@@ -1074,7 +1071,6 @@ local Quests = {
     [1200] = {Name = "Demonic Soul",      Mob = "Demonic Soul",         Pos = Vector3.new(-9520, 141, 5875)},
     [1325] = {Name = "Posessed Mummy",    Mob = "Posessed Mummy",       Pos = Vector3.new(-9550, 141, 5825)},
     [1500] = {Name = "Drowned Cook",      Mob = "Drowned Cook",         Pos = Vector3.new(-9500, 141, 5800)},
-    -- THIRD SEA
     [1525] = {Name = "Pilot",             Mob = "Pilot",                Pos = Vector3.new(-13442, 285, -9400)},
     [1575] = {Name = "Sea Soldier",       Mob = "Sea Soldier",          Pos = Vector3.new(-13460, 285, -9420)},
     [1625] = {Name = "Water Fighter",     Mob = "Water Fighter",        Pos = Vector3.new(-13480, 285, -9440)},
@@ -1082,17 +1078,7 @@ local Quests = {
     [1725] = {Name = "Dragon Talon Sage", Mob = "Dragon Talon Sage",    Pos = Vector3.new(-13520, 285, -9620)},
     [1775] = {Name = "Giant Islander",    Mob = "Giant Islander",       Pos = Vector3.new(-13480, 380, -9500)},
     [1800] = {Name = "Dragon Talon",      Mob = "Dragon Talon",         Pos = Vector3.new(-13540, 285, -9640)},
-    [1825] = {Name = "Musketeer Pirate 2",Mob = "Musketeer Pirate",     Pos = Vector3.new(-13350, 375, -9350)},
     [1875] = {Name = "Street Thug",       Mob = "Street Thug",          Pos = Vector3.new(-13400, 285, -9380)},
-    [1900] = {Name = "Jungle Pirate 2",   Mob = "Jungle Pirate",        Pos = Vector3.new(-13300, 370, -9400)},
-    [1925] = {Name = "Reborn Skeleton 2", Mob = "Reborn Skeleton",      Pos = Vector3.new(-9510, 141, 5845)},
-    [1975] = {Name = "Living Zombie 2",   Mob = "Living Zombie",        Pos = Vector3.new(-9530, 141, 5810)},
-    [2000] = {Name = "Demonic Soul 2",    Mob = "Demonic Soul",         Pos = Vector3.new(-9520, 141, 5875)},
-    [2025] = {Name = "Posessed Mummy 2",  Mob = "Posessed Mummy",       Pos = Vector3.new(-9550, 141, 5825)},
-    [2075] = {Name = "Snow Bandit 2",     Mob = "Snow Bandit",          Pos = Vector3.new(1366, 7, -477)},
-    [2100] = {Name = "Snow Marine 2",     Mob = "Snow Marine",          Pos = Vector3.new(1536, 7, -478)},
-    [2125] = {Name = "Snow Village Guard",Mob = "Snow Village Guard",   Pos = Vector3.new(1540, 7, -480)},
-    [2150] = {Name = "Snow Village Warrior",Mob = "Snow Village Warrior",Pos = Vector3.new(1545, 7, -482)},
     [2175] = {Name = "Cocoa Warrior",     Mob = "Cocoa Warrior",        Pos = Vector3.new(-13425, 367, -9450)},
     [2200] = {Name = "Chocolate Bar Baker",Mob = "Chocolate Bar Baker", Pos = Vector3.new(-13430, 367, -9460)},
     [2225] = {Name = "Sweet Pirate",      Mob = "Sweet Pirate",         Pos = Vector3.new(-13435, 367, -9470)},
@@ -1101,38 +1087,23 @@ local Quests = {
     [2300] = {Name = "Peanut President",  Mob = "Peanut President",     Pos = Vector3.new(-13450, 367, -9500)},
     [2325] = {Name = "Big MOM",           Mob = "Big MOM",              Pos = Vector3.new(-13455, 367, -9510)},
     [2350] = {Name = "Cake Queen",        Mob = "Cake Queen",           Pos = Vector3.new(-13460, 367, -9520)},
-    [2375] = {Name = "rip_indra",         Mob = "rip_indra",            Pos = Vector3.new(-9510, 141, 5845)},
-    [2400] = {Name = "Sea Beast",         Mob = "Sea Beast",            Pos = Vector3.new(-9500, 141, 5800)},
-    [2500] = {Name = "Cursed Captain",    Mob = "Cursed Captain",       Pos = Vector3.new(-9520, 141, 5875)},
-    [2550] = {Name = "Koko",              Mob = "Koko",                 Pos = Vector3.new(-13470, 367, -9530)},
 }
 
 local function getBestQuest()
     local level = 1
     local data = LocalPlayer:FindFirstChild("Data")
-    if data and data:FindFirstChild("Level") then
-        level = data.Level.Value
-    end
+    if data and data:FindFirstChild("Level") then level = data.Level.Value end
     local best = nil
     for req, quest in pairs(Quests) do
         if level >= req then
-            if not best or req > (best.Req or 0) then
-                best = quest
-                best.Req = req
-            end
+            if not best or req > (best.Req or 0) then best = quest; best.Req = req end
         end
     end
     return best
 end
 
--- ============================================================
--- MOB DETECTION
--- ============================================================
 local function getClosestMob(targetName)
-    local closest = nil
-    local closestDist = math.huge
-
-    -- Check Workspace.Enemies
+    local closest, closestDist = nil, math.huge
     local enemies = Workspace:FindFirstChild("Enemies")
     if enemies then
         for _, mob in pairs(enemies:GetChildren()) do
@@ -1141,87 +1112,37 @@ local function getClosestMob(targetName)
                     local mobRoot = mob:FindFirstChild("HumanoidRootPart")
                     if mobRoot and RootPart then
                         local dist = (RootPart.Position - mobRoot.Position).Magnitude
-                        if dist < closestDist then
-                            closest = mob
-                            closestDist = dist
-                        end
+                        if dist < closestDist then closest = mob; closestDist = dist end
                     end
                 end
             end
         end
     end
-
-    -- Fallback: check Workspace directly for mobs
-    if not closest then
-        for _, obj in pairs(Workspace:GetChildren()) do
-            if obj:IsA("Model") and obj:FindFirstChild("Humanoid") and obj.Humanoid.Health > 0 then
-                if obj ~= Character and not obj:IsDescendantOf(Character) then
-                    if not targetName or obj.Name == targetName then
-                        local mobRoot = obj:FindFirstChild("HumanoidRootPart")
-                        if mobRoot and RootPart then
-                            local dist = (RootPart.Position - mobRoot.Position).Magnitude
-                            if dist < closestDist then
-                                closest = obj
-                                closestDist = dist
-                            end
-                        end
-                    end
-                end
-            end
-        end
-    end
-
     return closest
 end
 
--- ============================================================
--- MOB BRINGING — FIXED
--- ============================================================
 local function bringMob(mob)
-    if not mob then return end
-    if not mob:FindFirstChild("HumanoidRootPart") then return end
+    if not mob or not mob:FindFirstChild("HumanoidRootPart") then return end
     pcall(function()
         mob.HumanoidRootPart.CFrame = RootPart.CFrame * CFrame.new(0, 0, -10)
         mob.HumanoidRootPart.CanCollide = false
-        -- Don't use sethiddenproperty - directly set properties
         if mob:FindFirstChild("Humanoid") then
-            pcall(function()
-                mob.Humanoid.WalkSpeed = 0
-                mob.Humanoid.JumpPower = 0
-            end)
+            pcall(function() mob.Humanoid.WalkSpeed = 0; mob.Humanoid.JumpPower = 0 end)
         end
     end)
 end
 
--- ============================================================
--- ATTACK SYSTEM — COMPLETELY REWRITTEN
--- ============================================================
 local lastAttack = 0
-
 local function attackMob(mob)
-    if not mob then return end
-    if not mob:FindFirstChild("HumanoidRootPart") then return end
+    if not mob or not mob:FindFirstChild("HumanoidRootPart") then return end
     if not RootPart then return end
-
     local mobPos = mob.HumanoidRootPart.Position
     local myPos = RootPart.Position
-
-    -- Method 1: Fire CommE_ (primary attack remote)
     local commE = getCommE()
     if commE then
-        pcall(function()
-            commE:FireServer(mobPos)
-        end)
+        pcall(function() commE:FireServer(mobPos) end)
+        pcall(function() commE:FireServer(mobPos, CFrame.new(myPos, mobPos)) end)
     end
-
-    -- Method 2: Fire CommE_ with CFrame (some versions need this)
-    if commE then
-        pcall(function()
-            commE:FireServer(mobPos, CFrame.new(myPos, mobPos))
-        end)
-    end
-
-    -- Method 3: Simulate mouse click (M1)
     if Config.FastAttack then
         pcall(function()
             VirtualInputManager:SendMouseButtonEvent(0, 0, 0, true, game, 1)
@@ -1229,8 +1150,6 @@ local function attackMob(mob)
             VirtualInputManager:SendMouseButtonEvent(0, 0, 0, false, game, 1)
         end)
     end
-
-    -- Method 4: Super Effective (use all skills)
     if Config.SuperEffective then
         local now = tick()
         if now - lastAttack > 1 then
@@ -1246,36 +1165,57 @@ local function attackMob(mob)
     end
 end
 
--- ============================================================
--- QUEST SYSTEM — FIXED
--- ============================================================
-local function takeQuest(quest)
-    if not quest then return end
-    local comm = getCommF()
-    if not comm then return end
-    pcall(function()
-        -- Tween to quest NPC
-        if RootPart then
-            local dist = (RootPart.Position - quest.Pos).Magnitude
-            if dist > 20 then
-                tweenTo(quest.Pos, Config.TweenSpeed)
-                task.wait(0.3)
-            end
-        end
-        -- Accept quest via CommF_
-        comm:InvokeServer("StartQuest", quest.Name, 1)
-    end)
-end
-
 local function hasActiveQuest()
     local questGui = LocalPlayer:FindFirstChild("PlayerGui")
     if questGui then
         local questFrame = questGui:FindFirstChild("Quest")
-        if questFrame then
-            return questFrame.Enabled
-        end
+        if questFrame then return questFrame.Enabled end
     end
     return false
+end
+
+-- ============================================================
+-- CHEST DETECTION — FIXED: broad search
+-- ============================================================
+local function findAllChests()
+    local chests = {}
+    -- Search Workspace children
+    for _, obj in pairs(Workspace:GetChildren()) do
+        local name = obj.Name:lower()
+        if name:match("chest") then
+            local part = obj:FindFirstChildWhichIsA("BasePart")
+            if not part and obj:IsA("BasePart") then part = obj end
+            if part then
+                table.insert(chests, {Model = obj, Part = part, Pos = part.Position})
+            end
+        end
+    end
+    -- Search inside common container names
+    for _, containerName in pairs({"Map", "Islands", "World"}) do
+        local container = Workspace:FindFirstChild(containerName)
+        if container then
+            for _, obj in pairs(container:GetChildren()) do
+                if obj.Name:lower():match("chest") then
+                    local part = obj:FindFirstChildWhichIsA("BasePart")
+                    if not part and obj:IsA("BasePart") then part = obj end
+                    if part then
+                        table.insert(chests, {Model = obj, Part = part, Pos = part.Position})
+                    end
+                end
+                -- Search one level deeper
+                for _, child in pairs(obj:GetChildren()) do
+                    if child.Name:lower():match("chest") then
+                        local part = child:FindFirstChildWhichIsA("BasePart")
+                        if not part and child:IsA("BasePart") then part = child end
+                        if part then
+                            table.insert(chests, {Model = child, Part = part, Pos = part.Position})
+                        end
+                    end
+                end
+            end
+        end
+    end
+    return chests
 end
 
 -- ============================================================
@@ -1285,9 +1225,7 @@ local function hopServer()
     notify("Server Hop", "Searching for a new server...", 3, "warning")
     local placeId = game.PlaceId
     local url = "https://games.roblox.com/v1/games/" .. placeId .. "/servers/Public?sortOrder=Asc&limit=100"
-    local success, response = pcall(function()
-        return HttpService:JSONDecode(game:HttpGet(url))
-    end)
+    local success, response = pcall(function() return HttpService:JSONDecode(game:HttpGet(url)) end)
     if success and response and response.data then
         local candidates = {}
         for _, server in pairs(response.data) do
@@ -1300,12 +1238,241 @@ local function hopServer()
             notify("Server Hop", "Joining new server...", 2, "success")
             TeleportService:TeleportToPlaceInstance(placeId, target, LocalPlayer)
         else
-            notify("Server Hop", "No suitable servers found, retrying...", 2, "warning")
+            notify("Server Hop", "No servers found, retrying...", 2, "warning")
             task.wait(2)
             hopServer()
         end
     end
 end
+
+-- ============================================================
+-- ESP SYSTEM
+-- ============================================================
+local ESPObjects = {
+    Fruit = {}, Chest = {}, Island = {}, Mob = {}, Player = {}
+}
+
+local ESPColors = {
+    Fruit = Color3.fromRGB(255, 80, 80),
+    Chest = Color3.fromRGB(255, 200, 50),
+    Island = Color3.fromRGB(100, 200, 255),
+    Mob = Color3.fromRGB(255, 100, 200),
+    Player = Color3.fromRGB(100, 255, 100),
+}
+
+local function clearESP(type)
+    for _, obj in pairs(ESPObjects[type]) do
+        pcall(function() obj.Highlight:Destroy() end)
+        pcall(function() obj.Billboard:Destroy() end)
+    end
+    ESPObjects[type] = {}
+end
+
+local function clearAllESP()
+    for type, _ in pairs(ESPObjects) do clearESP(type) end
+end
+
+local function addESP(target, espType, text)
+    if not target then return end
+    local highlight = Instance.new("Highlight")
+    highlight.FillColor = ESPColors[espType]
+    highlight.FillTransparency = 0.5
+    highlight.OutlineColor = Color3.fromRGB(255, 255, 255)
+    highlight.OutlineTransparency = 0
+    highlight.Parent = target
+
+    local billboard = Instance.new("BillboardGui")
+    billboard.Size = UDim2.new(0, 200, 0, 30)
+    billboard.AlwaysOnTop = true
+    billboard.MaxDistance = 5000
+    billboard.Parent = target
+
+    local label = Instance.new("TextLabel")
+    label.Size = UDim2.new(1, 0, 1, 0)
+    label.BackgroundTransparency = 1
+    label.Text = text
+    label.TextColor3 = ESPColors[espType]
+    label.Font = Enum.Font.GothamBold
+    label.TextSize = 14
+    label.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+    label.TextStrokeTransparency = 0.3
+    label.Parent = billboard
+
+    table.insert(ESPObjects[espType], {Highlight = highlight, Billboard = billboard, Target = target})
+end
+
+-- Island ESP: create invisible parts at island positions
+local IslandParts = {}
+local function setupIslandESP()
+    local islands = {
+        {"Windmill Village", Vector3.new(1059, 16, 1548)},
+        {"Jungle", Vector3.new(-1591, 37, 167)},
+        {"Pirate Village", Vector3.new(-1139, 13, 4049)},
+        {"Desert", Vector3.new(974, 6, 4556)},
+        {"Snow Island", Vector3.new(1366, 7, -477)},
+        {"MarineFord", Vector3.new(-4800, 22, 4314)},
+        {"Sky Island", Vector3.new(-4864, 724, -2609)},
+        {"Prison", Vector3.new(5310, 1, 4740)},
+        {"Colosseum", Vector3.new(-1166, 73, -4346)},
+        {"Magma Village", Vector3.new(-5414, 88, -2790)},
+        {"Underwater City", Vector3.new(-4570, 272, -2580)},
+        {"Fishman Island", Vector3.new(-2586, 8, -3343)},
+        {"Fountain City", Vector3.new(-2270, 16, 5215)},
+        {"Thunder God", Vector3.new(-7748, 24200, -24930)},
+        {"Ice Castle", Vector3.new(5950, 47, -7289)},
+        {"Forgotten Island", Vector3.new(-3034, 314, -7476)},
+        {"Floating Turtle", Vector3.new(-13425, 367, -9450)},
+        {"Castle on the Sea", Vector3.new(-13500, 285, -9600)},
+        {"Haunted Castle", Vector3.new(-9510, 141, 5845)},
+        {"Sea of Treats", Vector3.new(-9500, 141, 5800)},
+        {"Port Town", Vector3.new(-13442, 285, -9400)},
+        {"Hydra Island", Vector3.new(-13520, 285, -9620)},
+    }
+    for _, island in pairs(islands) do
+        local part = Instance.new("Part")
+        part.Position = island[2]
+        part.Size = Vector3.new(1, 1, 1)
+        part.Transparency = 1
+        part.CanCollide = false
+        part.Anchored = true
+        part.Parent = nil -- hidden by default
+
+        local billboard = Instance.new("BillboardGui")
+        billboard.Size = UDim2.new(0, 200, 0, 30)
+        billboard.AlwaysOnTop = true
+        billboard.MaxDistance = 10000
+        billboard.Parent = part
+
+        local label = Instance.new("TextLabel")
+        label.Size = UDim2.new(1, 0, 1, 0)
+        label.BackgroundTransparency = 1
+        label.Text = island[1]
+        label.TextColor3 = ESPColors.Island
+        label.Font = Enum.Font.GothamBold
+        label.TextSize = 14
+        label.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+        label.TextStrokeTransparency = 0.3
+        label.Parent = billboard
+
+        table.insert(IslandParts, {Part = part, Name = island[1]})
+    end
+end
+setupIslandESP()
+
+-- ESP update loop
+task.spawn(function()
+    while true do
+        task.wait(2)
+        pcall(function()
+            -- Fruit ESP
+            if Config.FruitESP then
+                clearESP("Fruit")
+                for _, obj in pairs(Workspace:GetChildren()) do
+                    if obj:IsA("Model") and obj.Name:lower():match("fruit") then
+                        addESP(obj, "Fruit", "Devil Fruit: " .. obj.Name)
+                    end
+                end
+            else
+                clearESP("Fruit")
+            end
+
+            -- Chest ESP
+            if Config.ChestESP then
+                clearESP("Chest")
+                local chests = findAllChests()
+                for _, chest in pairs(chests) do
+                    addESP(chest.Model, "Chest", "Chest")
+                end
+            else
+                clearESP("Chest")
+            end
+
+            -- Mob ESP
+            if Config.MobESP then
+                clearESP("Mob")
+                local enemies = Workspace:FindFirstChild("Enemies")
+                if enemies then
+                    for _, mob in pairs(enemies:GetChildren()) do
+                        if mob:FindFirstChild("Humanoid") and mob.Humanoid.Health > 0 then
+                            addESP(mob, "Mob", mob.Name .. " [" .. math.floor(mob.Humanoid.Health) .. " HP]")
+                        end
+                    end
+                end
+            else
+                clearESP("Mob")
+            end
+
+            -- Player ESP
+            if Config.PlayerESP then
+                clearESP("Player")
+                for _, plr in pairs(Players:GetPlayers()) do
+                    if plr ~= LocalPlayer and plr.Character then
+                        addESP(plr.Character, "Player", plr.Name)
+                    end
+                end
+            else
+                clearESP("Player")
+            end
+
+            -- Island ESP
+            for _, islandData in pairs(IslandParts) do
+                if Config.IslandESP then
+                    islandData.Part.Parent = Workspace
+                else
+                    islandData.Part.Parent = nil
+                end
+            end
+        end)
+    end
+end)
+
+-- ============================================================
+-- THREE SEAS TELEPORT DATA
+-- ============================================================
+local SeaIslands = {
+    ["First Sea"] = {
+        {"Windmill Village", Vector3.new(1059, 16, 1548)},
+        {"Jungle", Vector3.new(-1591, 37, 167)},
+        {"Pirate Village", Vector3.new(-1139, 13, 4049)},
+        {"Desert", Vector3.new(974, 6, 4556)},
+        {"Snow Island", Vector3.new(1366, 7, -477)},
+        {"MarineFord", Vector3.new(-4800, 22, 4314)},
+        {"Sky Island (Upper Yard)", Vector3.new(-4864, 724, -2609)},
+        {"Prison", Vector3.new(5310, 1, 4740)},
+        {"Colosseum", Vector3.new(-1166, 73, -4346)},
+        {"Magma Village", Vector3.new(-5414, 88, -2790)},
+        {"Underwater City", Vector3.new(-4570, 272, -2580)},
+        {"Fishman Island", Vector3.new(-2586, 8, -3343)},
+        {"Fountain City", Vector3.new(-2270, 16, 5215)},
+        {"Thunder God", Vector3.new(-7748, 24200, -24930)},
+        {"Ice Castle", Vector3.new(5950, 47, -7289)},
+        {"Forgotten Island", Vector3.new(-3034, 314, -7476)},
+    },
+    ["Second Sea"] = {
+        {"The Cafe", Vector3.new(-380, 74, 314)},
+        {"Light House", Vector3.new(-378, 74, 304)},
+        {"Dark Arena", Vector3.new(-340, 13, 30)},
+        {"Gravestone", Vector3.new(-480, 5, 330)},
+        {"Pirate Millionaire Island", Vector3.new(-1946, 100, -8346)},
+        {"Galley Captain Island", Vector3.new(-1810, 100, -8543)},
+        {"Island Empress Island", Vector3.new(-13500, 285, -9600)},
+        {"Forest Pirate Island", Vector3.new(-13425, 367, -9450)},
+        {"Mini Sky Island", Vector3.new(-13350, 375, -9350)},
+        {"Castle on the Sea", Vector3.new(-13500, 285, -9600)},
+    },
+    ["Third Sea"] = {
+        {"Port Town", Vector3.new(-13442, 285, -9400)},
+        {"Hydra Island", Vector3.new(-13520, 285, -9620)},
+        {"Great Tree (Third Sea)", Vector3.new(-13480, 380, -9500)},
+        {"Floating Turtle", Vector3.new(-13425, 367, -9450)},
+        {"Haunted Castle", Vector3.new(-9510, 141, 5845)},
+        {"Sea of Treats", Vector3.new(-9500, 141, 5800)},
+        {"Cocoa Warrior Island", Vector3.new(-13425, 367, -9450)},
+        {"Yeti Island", Vector3.new(-13440, 367, -9480)},
+        {"Peanut Island", Vector3.new(-13445, 367, -9490)},
+        {"Cake Queen Island", Vector3.new(-13460, 367, -9520)},
+    },
+}
 
 -- ============================================================
 -- BUILD PAGES
@@ -1319,7 +1486,7 @@ HomeTab:Label("Display Name: " .. LocalPlayer.DisplayName)
 local levelLabel = HomeTab:Label("Level: Loading...")
 local beliLabel = HomeTab:Label("Beli: Loading...")
 local fragLabel = HomeTab:Label("Fragments: Loading...")
-local questLabel = HomeTab:Label("Current Quest: None")
+local questLabel = HomeTab:Label("Best Quest: None")
 
 task.spawn(function()
     while true do
@@ -1331,30 +1498,41 @@ task.spawn(function()
             if data:FindFirstChild("Fragments") then fragLabel.Set("Fragments: " .. tostring(data.Fragments.Value)) end
         end
         local quest = getBestQuest()
-        if quest then
-            questLabel.Set("Best Quest: " .. quest.Name .. " (Lv." .. quest.Req .. ")")
-        end
+        if quest then questLabel.Set("Best Quest: " .. quest.Name .. " (Lv." .. quest.Req .. ")") end
     end
 end)
 
 HomeTab:Section("Quick Actions")
+HomeTab:Button("Stop All Actions", function()
+    Config.AutoFarm = false
+    Config.AutoQuest = false
+    Config.AutoChests = false
+    Config.AutoFruits = false
+    Config.AutoStats = false
+    Config.AutoHop = false
+    Config.KillAura = false
+    stopMovement()
+    notify("Stopped", "All actions cancelled", 2, "warning")
+end)
 HomeTab:Button("Rejoin Server", function() TeleportService:Teleport(game.PlaceId, LocalPlayer) end)
 HomeTab:Button("Copy Server ID", function() setclipboard(game.JobId); notify("Copied", "Server ID copied to clipboard", 2, "success") end)
 HomeTab:Button("Server Hop", function() hopServer() end)
 HomeTab:Section("About")
-HomeTab:Label("Ebanat Hub v2.0.0")
+HomeTab:Label("Ebanat Hub v3.0.0")
 HomeTab:Label("Built by ENI")
 HomeTab:Label("Press RightShift to toggle UI")
 
--- AUTO FARM — FIXED
-local FarmTab = createTab("Auto Farm", "S")
+-- AUTO FARM — with cancellable actions
+local FarmTab = createTab("Farm", "S")
 FarmTab:Section("Combat")
 FarmTab:Toggle("Auto Farm", "Automatically farms nearest mobs for XP", false, function(state)
     Config.AutoFarm = state
+    if not state then stopMovement() end
     notify("Auto Farm", state and "Enabled" or "Disabled", 2, state and "success" or "warning")
 end)
-FarmTab:Toggle("Auto Quest", "Automatically accepts best quest", false, function(state)
+FarmTab:Toggle("Auto Quest", "Auto accepts best quest (instant teleport)", false, function(state)
     Config.AutoQuest = state
+    if not state then stopMovement() end
 end)
 FarmTab:Toggle("Fast Attack", "Uses fast attack method", true, function(state)
     Config.FastAttack = state
@@ -1368,73 +1546,59 @@ end)
 FarmTab:Dropdown("Attack Method", {"M1", "Skill", "Both"}, "Both", function(opt)
     Config.AttackMethod = opt
 end)
-FarmTab:Section("Movement")
-FarmTab:Slider("Tween Speed", 50, 500, 200, " studs/s", function(val)
-    Config.TweenSpeed = val
+FarmTab:Section("Combat Utilities")
+FarmTab:Toggle("Kill Aura", "Attacks all nearby mobs", false, function(state)
+    Config.KillAura = state
+    notify("Kill Aura", state and "Enabled" or "Disabled", 2, state and "success" or "warning")
+end)
+FarmTab:Slider("Aura Range", 10, 200, 50, " studs", function(val)
+    Config.AuraRange = val
 end)
 FarmTab:Section("Manual Actions")
 FarmTab:Button("Farm Nearest Mob", function()
     local mob = getClosestMob()
-    if mob then
-        bringMob(mob)
-        attackMob(mob)
-        notify("Farm", "Attacking " .. mob.Name, 2)
-    else
-        notify("Farm", "No mobs found nearby", 2, "warning")
-    end
+    if mob then bringMob(mob); attackMob(mob); notify("Farm", "Attacking " .. mob.Name, 2)
+    else notify("Farm", "No mobs found", 2, "warning") end
 end)
 FarmTab:Button("Take Best Quest", function()
     local quest = getBestQuest()
     if quest then
-        takeQuest(quest)
+        teleportTo(quest.Pos)
+        task.wait(0.3)
+        local comm = getCommF()
+        if comm then pcall(function() comm:InvokeServer("StartQuest", quest.Name, 1) end) end
         notify("Quest", "Taking quest: " .. quest.Name, 2)
     end
 end)
-FarmTab:Button("Show Remotes Info", function()
-    local commF = getCommF()
-    local commE = getCommE()
-    notify("Remotes", "CommF: " .. (commF and "Found" or "Missing") .. " | CommE: " .. (commE and "Found" or "Missing"), 5, "warning")
-end)
 
--- CRITICAL FIX: Auto farm loop using task.spawn instead of Heartbeat
+-- CRITICAL FIX: Auto farm loop uses teleportTo (instant) instead of tweenTo (blocking)
+-- This means toggling off immediately stops all movement
 task.spawn(function()
     while true do
         task.wait(0.1)
-        if not Config.AutoFarm then
-            -- Do nothing when disabled
-        else
+        if Config.AutoFarm then
             pcall(function()
-                if not RootPart then
-                    refreshCharacter()
-                end
-                if not RootPart then
-                    return
-                end
-
+                if not RootPart then refreshCharacter() return end
                 local quest = getBestQuest()
-                if not quest then
+                if not quest then return end
+
+                -- Auto quest: instant teleport, cancellable
+                if Config.AutoQuest and not hasActiveQuest() then
+                    teleportTo(quest.Pos)
+                    task.wait(0.3)
+                    if not Config.AutoFarm then return end
+                    local comm = getCommF()
+                    if comm then
+                        pcall(function() comm:InvokeServer("StartQuest", quest.Name, 1) end)
+                    end
+                    task.wait(0.5)
                     return
                 end
 
-                -- Auto quest
-                if Config.AutoQuest then
-                    if not hasActiveQuest() then
-                        takeQuest(quest)
-                        task.wait(1)
-                    end
-                end
-
-                -- Find mob
-                local mob = getClosestMob(quest.Mob)
-                if not mob then
-                    -- Fallback: farm any nearest mob
-                    mob = getClosestMob(nil)
-                end
-
+                -- Find and attack mob
+                local mob = getClosestMob(quest.Mob) or getClosestMob(nil)
                 if mob then
-                    if Config.BringMobs then
-                        bringMob(mob)
-                    end
+                    if Config.BringMobs then bringMob(mob) end
                     attackMob(mob)
                 end
             end)
@@ -1442,51 +1606,83 @@ task.spawn(function()
     end
 end)
 
--- CHESTS
+-- Kill Aura loop
+task.spawn(function()
+    while true do
+        task.wait(0.1)
+        if Config.KillAura and RootPart then
+            pcall(function()
+                local enemies = Workspace:FindFirstChild("Enemies")
+                if enemies then
+                    for _, mob in pairs(enemies:GetChildren()) do
+                        if mob:FindFirstChild("Humanoid") and mob.Humanoid.Health > 0 then
+                            local mobRoot = mob:FindFirstChild("HumanoidRootPart")
+                            if mobRoot then
+                                local dist = (RootPart.Position - mobRoot.Position).Magnitude
+                                if dist <= Config.AuraRange then
+                                    bringMob(mob)
+                                    attackMob(mob)
+                                end
+                            end
+                        end
+                    end
+                end
+            end)
+        end
+    end
+end)
+
+-- CHESTS — FIXED: better detection + instant teleport
 local ChestTab = createTab("Chests", "$")
 ChestTab:Section("Auto Chest Farm")
 ChestTab:Toggle("Auto Collect Chests", "Teleports to and collects all chests", false, function(state)
     Config.AutoChests = state
+    if not state then stopMovement() end
     notify("Chest Farm", state and "Enabled" or "Disabled", 2, state and "success" or "warning")
 end)
 ChestTab:Button("Collect All Chests Now", function()
-    notify("Chests", "Collecting chests...", 2)
+    notify("Chests", "Searching for chests...", 2)
     task.spawn(function()
         if not RootPart then return end
-        for _, obj in pairs(Workspace:GetChildren()) do
-            if obj.Name:lower():match("chest") then
-                local part = obj:FindFirstChildWhichIsA("BasePart")
-                if not part and obj:IsA("BasePart") then part = obj end
-                if part then
-                    tweenTo(part.Position, 300)
-                    task.wait(0.3)
-                    pcall(function()
-                        firetouchinterest(RootPart, part, 0)
-                        firetouchinterest(RootPart, part, 1)
-                    end)
-                end
+        local chests = findAllChests()
+        if #chests == 0 then
+            notify("Chests", "No chests found in this server", 3, "warning")
+            return
+        end
+        notify("Chests", "Found " .. #chests .. " chests, collecting...", 2, "success")
+        for i, chest in pairs(chests) do
+            if RootPart and chest.Part and chest.Part.Parent then
+                teleportTo(chest.Pos + Vector3.new(0, 5, 0))
+                task.wait(0.2)
+                pcall(function()
+                    firetouchinterest(RootPart, chest.Part, 0)
+                    firetouchinterest(RootPart, chest.Part, 1)
+                end)
+                task.wait(0.1)
             end
         end
+        notify("Chests", "Collection complete!", 2, "success")
     end)
 end)
 
+-- Chest loop — uses teleportTo (instant, cancellable)
 task.spawn(function()
     while true do
         task.wait(0.5)
         if Config.AutoChests and RootPart then
             pcall(function()
-                for _, obj in pairs(Workspace:GetChildren()) do
-                    if obj.Name:lower():match("chest") then
-                        local part = obj:FindFirstChildWhichIsA("BasePart")
-                        if not part and obj:IsA("BasePart") then part = obj end
-                        if part then
-                            tweenTo(part.Position, 300)
-                            task.wait(0.3)
-                            pcall(function()
-                                firetouchinterest(RootPart, part, 0)
-                                firetouchinterest(RootPart, part, 1)
-                            end)
-                        end
+                local chests = findAllChests()
+                for _, chest in pairs(chests) do
+                    if not Config.AutoChests then break end
+                    if chest.Part and chest.Part.Parent then
+                        teleportTo(chest.Pos + Vector3.new(0, 5, 0))
+                        task.wait(0.2)
+                        if not Config.AutoChests then break end
+                        pcall(function()
+                            firetouchinterest(RootPart, chest.Part, 0)
+                            firetouchinterest(RootPart, chest.Part, 1)
+                        end)
+                        task.wait(0.1)
                     end
                 end
             end)
@@ -1499,6 +1695,7 @@ local FruitsTab = createTab("Fruits", "F")
 FruitsTab:Section("Fruit Collection")
 FruitsTab:Toggle("Auto Farm Fruits", "Collects spawned devil fruits", false, function(state)
     Config.AutoFruits = state
+    if not state then stopMovement() end
     notify("Fruit Farm", state and "Enabled" or "Disabled", 2, state and "success" or "warning")
 end)
 FruitsTab:Toggle("Auto Store Fruits", "Stores collected fruits in inventory", false, function(state)
@@ -1522,27 +1719,27 @@ FruitsTab:Button("Store Current Fruit", function()
     if comm then pcall(function() comm:InvokeServer("StoreFruit") end); notify("Storage", "Fruit stored", 2, "success") end
 end)
 
+-- Fruit loop — uses teleportTo
 task.spawn(function()
     while true do
         task.wait(0.5)
         if Config.AutoFruits and RootPart then
             pcall(function()
                 for _, obj in pairs(Workspace:GetChildren()) do
+                    if not Config.AutoFruits then break end
                     if obj:IsA("Model") and obj.Name:lower():match("fruit") then
                         local part = obj:FindFirstChildWhichIsA("BasePart")
                         if part then
-                            local dist = (RootPart.Position - part.Position).Magnitude
-                            if dist < 2000 then
-                                tweenTo(part.Position, 250)
-                                task.wait(0.3)
-                                pcall(function()
-                                    firetouchinterest(RootPart, part, 0)
-                                    firetouchinterest(RootPart, part, 1)
-                                end)
-                                if Config.AutoStoreFruits then
-                                    local comm = getCommF()
-                                    if comm then pcall(function() comm:InvokeServer("StoreFruit") end) end
-                                end
+                            teleportTo(part.Position + Vector3.new(0, 5, 0))
+                            task.wait(0.2)
+                            if not Config.AutoFruits then break end
+                            pcall(function()
+                                firetouchinterest(RootPart, part, 0)
+                                firetouchinterest(RootPart, part, 1)
+                            end)
+                            if Config.AutoStoreFruits then
+                                local comm = getCommF()
+                                if comm then pcall(function() comm:InvokeServer("StoreFruit") end) end
                             end
                         end
                     end
@@ -1613,10 +1810,59 @@ task.spawn(function()
     end
 end)
 
+-- ESP TAB — NEW
+local ESPTab = createTab("ESP", "E")
+ESPTab:Section("Visual ESP")
+ESPTab:Toggle("Fruit ESP", "Highlights all devil fruits", false, function(state)
+    Config.FruitESP = state
+    if not state then clearESP("Fruit") end
+    notify("ESP", "Fruit ESP " .. (state and "Enabled" or "Disabled"), 2, state and "success" or "warning")
+end)
+ESPTab:Toggle("Chest ESP", "Highlights all chests", false, function(state)
+    Config.ChestESP = state
+    if not state then clearESP("Chest") end
+    notify("ESP", "Chest ESP " .. (state and "Enabled" or "Disabled"), 2, state and "success" or "warning")
+end)
+ESPTab:Toggle("Island ESP", "Shows island names in world", false, function(state)
+    Config.IslandESP = state
+    notify("ESP", "Island ESP " .. (state and "Enabled" or "Disabled"), 2, state and "success" or "warning")
+end)
+ESPTab:Toggle("Mob ESP", "Highlights all mobs with HP", false, function(state)
+    Config.MobESP = state
+    if not state then clearESP("Mob") end
+    notify("ESP", "Mob ESP " .. (state and "Enabled" or "Disabled"), 2, state and "success" or "warning")
+end)
+ESPTab:Toggle("Player ESP", "Highlights all players", false, function(state)
+    Config.PlayerESP = state
+    if not state then clearESP("Player") end
+    notify("ESP", "Player ESP " .. (state and "Enabled" or "Disabled"), 2, state and "success" or "warning")
+end)
+ESPTab:Section("ESP Actions")
+ESPTab:Button("Clear All ESP", function()
+    clearAllESP()
+    Config.FruitESP = false; Config.ChestESP = false; Config.IslandESP = false
+    Config.MobESP = false; Config.PlayerESP = false
+    notify("ESP", "All ESP cleared", 2, "warning")
+end)
+
+-- TELEPORT — THREE SEAS
+local TeleportTab = createTab("Teleport", "T")
+for seaName, islands in pairs(SeaIslands) do
+    TeleportTab:Section(seaName)
+    for _, island in pairs(islands) do
+        TeleportTab:Button(island[1], function()
+            if RootPart then
+                teleportTo(island[2])
+                notify("Teleport", "Teleported to " .. island[1], 2, "success")
+            end
+        end)
+    end
+end
+
 -- SERVER HOP
-local HopTab = createTab("Server Hop", "R")
+local HopTab = createTab("Hop", "R")
 HopTab:Section("Auto Server Hop")
-HopTab:Toggle("Auto Hop", "Hops servers when no mobs or low population", false, function(state)
+HopTab:Toggle("Auto Hop", "Hops when no mobs or low population", false, function(state)
     Config.AutoHop = state
     notify("Auto Hop", state and "Enabled" or "Disabled", 2, state and "success" or "warning")
     if state then
@@ -1624,18 +1870,12 @@ HopTab:Toggle("Auto Hop", "Hops servers when no mobs or low population", false, 
             while Config.AutoHop do
                 task.wait(10)
                 local playerCount = #Players:GetPlayers()
-                if playerCount <= Config.HopMinPlayers then
-                    hopServer()
-                    break
-                end
+                if playerCount <= Config.HopMinPlayers then hopServer(); break end
                 local mobFound = false
                 local enemies = Workspace:FindFirstChild("Enemies")
                 if enemies then
                     for _, mob in pairs(enemies:GetChildren()) do
-                        if mob:FindFirstChild("Humanoid") and mob.Humanoid.Health > 0 then
-                            mobFound = true
-                            break
-                        end
+                        if mob:FindFirstChild("Humanoid") and mob.Humanoid.Health > 0 then mobFound = true; break end
                     end
                 end
                 if not mobFound then
@@ -1643,16 +1883,10 @@ HopTab:Toggle("Auto Hop", "Hops servers when no mobs or low population", false, 
                     mobFound = false
                     if enemies then
                         for _, mob in pairs(enemies:GetChildren()) do
-                            if mob:FindFirstChild("Humanoid") and mob.Humanoid.Health > 0 then
-                                mobFound = true
-                                break
-                            end
+                            if mob:FindFirstChild("Humanoid") and mob.Humanoid.Health > 0 then mobFound = true; break end
                         end
                     end
-                    if not mobFound then
-                        hopServer()
-                        break
-                    end
+                    if not mobFound then hopServer(); break end
                 end
             end
         end)
@@ -1661,93 +1895,13 @@ end)
 HopTab:Slider("Min Players", 1, 30, 5, "", function(val) Config.HopMinPlayers = val end)
 HopTab:Button("Hop Now", function() hopServer() end)
 
--- TELEPORT
-local TeleportTab = createTab("Teleport", "T")
-TeleportTab:Section("Islands")
-local islands = {
-    {"First Sea Starter", Vector3.new(1059, 16, 1548)},
-    {"Jungle", Vector3.new(-1591, 37, 167)},
-    {"Buggy Island", Vector3.new(-1139, 13, 4049)},
-    {"Desert", Vector3.new(974, 6, 4556)},
-    {"Snow Island", Vector3.new(1366, 7, -477)},
-    {"Marineford", Vector3.new(-4800, 22, 4314)},
-    {"Sky Island", Vector3.new(-4864, 724, -2609)},
-    {"Prison", Vector3.new(5310, 1, 4740)},
-    {"Underwater City", Vector3.new(-4570, 272, -2580)},
-    {"Fishman Island", Vector3.new(-2586, 8, -3343)},
-    {"Colosseum", Vector3.new(-1166, 73, -4346)},
-    {"Magma Village", Vector3.new(-5414, 88, -2790)},
-    {"Great Tree", Vector3.new(-2270, 16, 5215)},
-    {"Floating Turtle", Vector3.new(-13425, 367, -9450)},
-    {"Haunted Castle", Vector3.new(-9510, 141, 5845)},
-    {"Sea of Treats", Vector3.new(-9500, 141, 5800)},
-    {"Hydra Island", Vector3.new(-13500, 285, -9600)},
-    {"Port Town", Vector3.new(-13400, 285, -9400)},
-}
-for _, island in pairs(islands) do
-    TeleportTab:Button(island[1], function()
-        if RootPart then tweenTo(island[2], 300); notify("Teleport", "Teleported to " .. island[1], 2, "success") end
-    end)
-end
-
--- PLAYERS
-local PlayersTab = createTab("Players", "U")
-PlayersTab:Section("Player Utilities")
-PlayersTab:Toggle("Kill Aura", "Attacks all nearby mobs automatically", false, function(state)
-    Config.KillAura = state
-    notify("Kill Aura", state and "Enabled" or "Disabled", 2, state and "success" or "warning")
-end)
-PlayersTab:Slider("Aura Range", 10, 200, 50, " studs", function(val) Config.AuraRange = val end)
-PlayersTab:Section("Player List")
-PlayersTab:Button("Teleport to Random Player", function()
-    local players = Players:GetPlayers()
-    if #players > 1 then
-        local target = players[math.random(1, #players)]
-        while target == LocalPlayer and #players > 1 do
-            target = players[math.random(1, #players)]
-        end
-        if target.Character and target.Character:FindFirstChild("HumanoidRootPart") and RootPart then
-            RootPart.CFrame = target.Character.HumanoidRootPart.CFrame
-            notify("Teleport", "Teleported to " .. target.Name, 2, "success")
-        end
-    end
-end)
-
--- Kill Aura loop
-task.spawn(function()
-    while true do
-        task.wait(0.1)
-        if Config.KillAura and RootPart then
-            pcall(function()
-                local enemies = Workspace:FindFirstChild("Enemies")
-                if enemies then
-                    for _, mob in pairs(enemies:GetChildren()) do
-                        if mob:FindFirstChild("Humanoid") and mob.Humanoid.Health > 0 then
-                            local mobRoot = mob:FindFirstChild("HumanoidRootPart")
-                            if mobRoot then
-                                local dist = (RootPart.Position - mobRoot.Position).Magnitude
-                                if dist <= Config.AuraRange then
-                                    bringMob(mob)
-                                    attackMob(mob)
-                                end
-                            end
-                        end
-                    end
-                end
-            end)
-        end
-    end
-end)
-
 -- SETTINGS
 local SettingsTab = createTab("Settings", "X")
 SettingsTab:Section("Interface")
 SettingsTab:Dropdown("UI Theme", {"Purple", "Blue", "Red", "Green", "Pink", "Orange", "Cyan"}, "Purple", function(opt)
     local preset = ThemePresets[opt]
     if preset then
-        Theme.Accent = preset[1]
-        Theme.AccentLight = preset[2]
-        Theme.AccentDark = preset[3]
+        Theme.Accent = preset[1]; Theme.AccentLight = preset[2]; Theme.AccentDark = preset[3]
         gradient(Logo, Theme.AccentLight, Theme.AccentDark, 135)
         stroke(Window, Theme.AccentDark, 1, 0.3)
         stroke(VersionBadge, Theme.AccentDark, 1, 0.3)
@@ -1762,10 +1916,13 @@ SettingsTab:Toggle("Anti-AFK", "Prevents being kicked for inactivity", true, fun
     Config.AntiAFK = state
 end)
 SettingsTab:Button("Reset Window Position", function()
-    TweenService:Create(Window, TweenInfo.new(0.3), {Position = UDim2.new(0.5, -320, 0.5, -210)}):Play()
+    TweenService:Create(Window, TweenInfo.new(0.3), {Position = UDim2.new(0.5, -340, 0.5, -230)}):Play()
     notify("Settings", "Position reset", 2)
 end)
-SettingsTab:Button("Destroy UI", function() ScreenGui:Destroy() end)
+SettingsTab:Button("Destroy UI", function()
+    clearAllESP()
+    ScreenGui:Destroy()
+end)
 SettingsTab:Section("Keybinds")
 SettingsTab:Keybind("Toggle UI", Enum.KeyCode.RightShift, function() Window.Visible = not Window.Visible end)
 
@@ -1789,10 +1946,4 @@ end)
 task.wait(0.3)
 notify("Ebanat Hub", "Welcome, " .. LocalPlayer.Name .. "!", 4, "success")
 task.wait(1)
-notify("Loaded", "v2.0 - All systems operational", 3, "success")
-
--- Debug: Check if remotes were found
-task.wait(0.5)
-local commFStatus = getCommF() and "Found" or "Missing"
-local commEStatus = getCommE() and "Found" or "Missing"
-notify("Debug", "CommF: " .. commFStatus .. " | CommE: " .. commEStatus, 5, "warning")
+notify("Loaded", "v3.0 - All systems operational", 3, "success")
