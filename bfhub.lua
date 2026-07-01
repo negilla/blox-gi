@@ -1,7 +1,7 @@
 --[[
     EBANAT HUB | BLOX FRUITS
-    Version: 5.3.0 — Delta Compatible
-    Fixed: Auto farm flies to mobs, fast attack works, chest ESP fixed
+    Version: 5.4.0 — Delta Compatible
+    Added: Custom Mavuika logo
 ]]
 
 local gethui = gethui or function() return game:GetService("CoreGui") end
@@ -152,23 +152,28 @@ TitleFix.BackgroundColor3 = Theme.BackgroundLight
 TitleFix.BorderSizePixel = 0
 TitleFix.Parent = TitleBar
 
-local Logo = Instance.new("Frame")
+-- ============================================================
+-- LOGO — MAVUIKA IMAGE INSTEAD OF "E"
+-- ============================================================
+local Logo = Instance.new("ImageLabel")
 Logo.Size = UDim2.new(0, 30, 0, 30)
 Logo.Position = UDim2.new(0, 12, 0.5, -15)
 Logo.BackgroundColor3 = Theme.Accent
 Logo.BorderSizePixel = 0
+Logo.Image = "https://img10.joyreactor.cc/pics/post/full/Bravarts-Mavuika-(Genshin-Impact)-Genshin-Impact-9343830.jpeg"
+Logo.ScaleType = Enum.ScaleType.Crop
 Logo.Parent = TitleBar
 corner(Logo, 8)
-gradient(Logo, Theme.AccentLight, Theme.AccentDark, 135)
+stroke(Logo, Theme.AccentLight, 1, 0)
 
-local LogoText = Instance.new("TextLabel")
-LogoText.Size = UDim2.new(1, 0, 1, 0)
-LogoText.BackgroundTransparency = 1
-LogoText.Text = "E"
-LogoText.TextColor3 = Color3.fromRGB(255, 255, 255)
-LogoText.Font = Enum.Font.GothamBlack
-LogoText.TextSize = 18
-LogoText.Parent = Logo
+local LogoGradient = Instance.new("UIGradient")
+LogoGradient.Color = ColorSequence.new({
+    ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 255, 255)),
+    ColorSequenceKeypoint.new(0.5, Color3.fromRGB(255, 255, 255)),
+    ColorSequenceKeypoint.new(1, Color3.fromRGB(180, 180, 200)),
+})
+LogoGradient.Rotation = 135
+LogoGradient.Parent = Logo
 
 local TitleLabel = Instance.new("TextLabel")
 TitleLabel.Size = UDim2.new(0, 200, 1, 0)
@@ -198,7 +203,7 @@ VersionBadge.Size = UDim2.new(0, 56, 0, 22)
 VersionBadge.Position = UDim2.new(0, 168, 0.5, -11)
 VersionBadge.BackgroundColor3 = Theme.Card
 VersionBadge.BorderSizePixel = 0
-VersionBadge.Text = "v5.3"
+VersionBadge.Text = "v5.4"
 VersionBadge.TextColor3 = Theme.AccentLight
 VersionBadge.Font = Enum.Font.GothamMedium
 VersionBadge.TextSize = 10
@@ -984,9 +989,6 @@ local function teleportTo(pos)
     RootPart.CFrame = CFrame.new(pos)
 end
 
--- ============================================================
--- QUEST DATA
--- ============================================================
 local Quests = {
     [1]={Name="Trainee",Mob="Bandit",Pos=Vector3.new(1059,16,1548)},
     [8]={Name="Monkey",Mob="Monkey",Pos=Vector3.new(-1591,37,167)},
@@ -1070,9 +1072,6 @@ local function getClosestMob(targetName)
     return closest
 end
 
--- ============================================================
--- ATTACK SYSTEM — COMPLETELY REWRITTEN
--- ============================================================
 local lastAttack = 0
 local lastM1 = 0
 
@@ -1085,23 +1084,14 @@ local function attackMob(mob)
     local myPos = RootPart.Position
     local commE = getCommE()
     
-    -- Method 1: Fire CommE_ with mob position (primary attack)
     if commE then
-        pcall(function()
-            commE:FireServer(mobPos)
-        end)
+        pcall(function() commE:FireServer(mobPos) end)
     end
     
-    -- Method 2: Fast Attack - fire CommE_ multiple times + M1 clicks
     if Config.FastAttack then
-        -- Fire CommE_ extra times for faster attacks
         if commE then
-            pcall(function()
-                commE:FireServer(mobPos)
-            end)
+            pcall(function() commE:FireServer(mobPos) end)
         end
-        
-        -- Simulate M1 mouse click (rate limited to avoid lag)
         local now = tick()
         if now - lastM1 > 0.05 then
             lastM1 = now
@@ -1113,8 +1103,8 @@ local function attackMob(mob)
         end
     end
     
-    -- Method 3: Super Effective - use all skills
     if Config.SuperEffective then
+        local now = tick()
         if now - lastAttack > 1 then
             lastAttack = now
             for _, key in pairs({"Z", "X", "C", "V", "F"}) do
@@ -1128,9 +1118,6 @@ local function attackMob(mob)
     end
 end
 
--- ============================================================
--- MOB BRING — keep as option
--- ============================================================
 local function bringMob(mob)
     if not mob or not mob:FindFirstChild("HumanoidRootPart") then return end
     pcall(function()
@@ -1142,13 +1129,9 @@ local function bringMob(mob)
     end)
 end
 
--- ============================================================
--- FLY TO MOB — NEW: player flies to mob position
--- ============================================================
 local function flyToMob(mob)
     if not mob or not mob:FindFirstChild("HumanoidRootPart") then return end
     if not RootPart then return end
-    -- Position player near the mob, facing it
     local mobPos = mob.HumanoidRootPart.Position
     RootPart.CFrame = CFrame.new(mobPos + Vector3.new(0, 5, 0), mobPos)
 end
@@ -1162,9 +1145,6 @@ local function hasActiveQuest()
     return false
 end
 
--- ============================================================
--- CHEST DETECTION — removed transparency check
--- ============================================================
 local function findAllChests()
     local chests = {}
     local function checkObj(obj)
@@ -1222,7 +1202,6 @@ local function hopServer()
     end
 end
 
--- SEA TELEPORT
 local SeaPlaceIds = {
     ["First Sea"] = 2753915549,
     ["Second Sea"] = 4442272183,
@@ -1236,9 +1215,7 @@ local function teleportToSea(seaName)
     pcall(function() TeleportService:Teleport(placeId, LocalPlayer) end)
 end
 
--- ============================================================
--- ESP SYSTEM — fixed chest cleanup
--- ============================================================
+-- ESP SYSTEM
 local function createESPManager(espType, color, getTextFunc)
     local manager = { Type = espType, Color = color, Enabled = false, Tracked = {}, GetText = getTextFunc or function() return espType end }
     function manager:Disable()
@@ -1286,26 +1263,18 @@ local function createESPManager(espType, color, getTextFunc)
     end
     function manager:Update(getTargetsFunc)
         if not self.Enabled then return end
-        -- Remove dead objects (obj.Parent is nil when destroyed)
         for obj, _ in pairs(self.Tracked) do
-            if not obj.Parent then
-                self:Remove(obj)
-            end
+            if not obj.Parent then self:Remove(obj) end
         end
-        -- Add new objects
         local targets = getTargetsFunc()
         local targetSet = {}
         for _, target in pairs(targets) do
             targetSet[target] = true
             self:Add(target)
         end
-        -- Remove objects no longer in targets
         for obj, _ in pairs(self.Tracked) do
-            if not targetSet[obj] then
-                self:Remove(obj)
-            end
+            if not targetSet[obj] then self:Remove(obj) end
         end
-        -- Update labels
         for obj, data in pairs(self.Tracked) do
             if obj.Parent and data.Label then
                 pcall(function() data.Label.Text = self.GetText(obj) end)
@@ -1355,7 +1324,6 @@ do
     end
 end
 
--- ESP update loop
 task.spawn(function()
     while true do
         task.wait(0.5)
@@ -1404,7 +1372,6 @@ task.spawn(function()
     end
 end)
 
--- THREE SEAS
 local SeaIslands = {
     ["First Sea"] = {
         {"Windmill Village", Vector3.new(1059, 16, 1548)}, {"Jungle", Vector3.new(-1591, 37, 167)},
@@ -1432,9 +1399,7 @@ local SeaIslands = {
     },
 }
 
--- ============================================================
 -- BUILD PAGES
--- ============================================================
 
 -- FARM
 local FarmTab = createTab("Farm", "S")
@@ -1486,12 +1451,9 @@ end)
 FarmTab:Button("Rejoin Server", function() TeleportService:Teleport(game.PlaceId, LocalPlayer) end)
 FarmTab:Button("Server Hop", function() hopServer() end)
 FarmTab:Section("Info")
-FarmTab:Label("Ebanat Hub v5.3.0 - Built by ENI")
+FarmTab:Label("Ebanat Hub v5.4.0 - Built by ENI")
 FarmTab:Label("Press RightShift to toggle UI")
 
--- ============================================================
--- AUTO FARM LOOP — REWRITTEN: flies to mobs + attacks
--- ============================================================
 task.spawn(function()
     while true do
         task.wait(0.05)
@@ -1500,8 +1462,6 @@ task.spawn(function()
                 if not RootPart or not RootPart.Parent then refreshCharacter(); return end
                 local quest = getBestQuest()
                 if not quest then return end
-
-                -- Auto quest
                 if Config.AutoQuest and not hasActiveQuest() then
                     teleportTo(quest.Pos)
                     task.wait(0.3)
@@ -1511,18 +1471,13 @@ task.spawn(function()
                     task.wait(0.5)
                     return
                 end
-
-                -- Find mob
                 local mob = getClosestMob(quest.Mob) or getClosestMob(nil)
                 if mob then
                     if Config.BringMobs then
-                        -- Bring mob to player
                         bringMob(mob)
                     else
-                        -- Fly player to mob
                         flyToMob(mob)
                     end
-                    -- Attack the mob
                     attackMob(mob)
                 end
             end)
@@ -1530,7 +1485,6 @@ task.spawn(function()
     end
 end)
 
--- Kill Aura loop
 task.spawn(function()
     while true do
         task.wait(0.05)
@@ -1836,7 +1790,6 @@ SettingsTab:Dropdown("UI Theme", {"Purple", "Blue", "Red", "Green", "Pink", "Ora
     local preset = ThemePresets[opt]
     if preset then
         Theme.Accent = preset[1]; Theme.AccentLight = preset[2]; Theme.AccentDark = preset[3]
-        gradient(Logo, Theme.AccentLight, Theme.AccentDark, 135)
         stroke(Window, Theme.AccentDark, 1, 0.3)
         stroke(VersionBadge, Theme.AccentDark, 1, 0.3)
         notify("Theme", "Changed to " .. opt, 2, "success")
@@ -1879,4 +1832,4 @@ end)
 task.wait(0.3)
 notify("Ebanat Hub", "Welcome, " .. LocalPlayer.Name .. "!", 4, "success")
 task.wait(1)
-notify("Loaded", "v5.3 - All systems operational", 3, "success")
+notify("Loaded", "v5.4 - Mavuika edition", 3, "success")
