@@ -1,20 +1,13 @@
 --[[
     EBANAT HUB | BLOX FRUITS
-    Version: 4.0.0 — Delta Compatible
-    Fixed: Scrolling, ESP system, chest delay, fruits tab additions
+    Version: 5.0.0 — Delta Compatible
+    Removed Home tab, fixed tab loading, fixed scrolling
 ]]
 
--- ============================================================
--- EXECUTOR DETECTION
--- ============================================================
 local gethui = gethui or function() return game:GetService("CoreGui") end
 local setclipboard = setclipboard or function() end
-local sethiddenproperty = sethiddenproperty or function() end
 local firetouchinterest = firetouchinterest or function() end
 
--- ============================================================
--- SERVICES
--- ============================================================
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TweenService = game:GetService("TweenService")
@@ -29,9 +22,7 @@ local Workspace = game:GetService("Workspace")
 local LocalPlayer = Players.LocalPlayer
 local Mouse = LocalPlayer:GetMouse()
 
--- ============================================================
 -- THEME
--- ============================================================
 local Theme = {
     Background = Color3.fromRGB(15, 15, 20),
     BackgroundLight = Color3.fromRGB(22, 22, 28),
@@ -62,9 +53,7 @@ local ThemePresets = {
     ["Cyan"]   = { Color3.fromRGB(50, 200, 220), Color3.fromRGB(90, 230, 245), Color3.fromRGB(30, 150, 170) },
 }
 
--- ============================================================
--- UTILITY
--- ============================================================
+-- UTILS
 local function corner(parent, radius)
     local c = Instance.new("UICorner")
     c.CornerRadius = UDim.new(0, radius or 8)
@@ -116,9 +105,7 @@ local function ripple(parent, x, y)
     tw.Completed:Connect(function() r:Destroy() end)
 end
 
--- ============================================================
--- SCREEN GUI
--- ============================================================
+-- GUI
 local ScreenGui = Instance.new("ScreenGui")
 ScreenGui.Name = "EbanatHub_" .. tostring(math.random(10000, 99999))
 ScreenGui.ResetOnSpawn = false
@@ -130,9 +117,6 @@ local UIScale = Instance.new("UIScale")
 UIScale.Scale = 1
 UIScale.Parent = ScreenGui
 
--- ============================================================
--- MAIN WINDOW
--- ============================================================
 local Window = Instance.new("Frame")
 Window.Size = UDim2.new(0, 680, 0, 460)
 Window.Position = UDim2.new(0.5, -340, 0.5, -230)
@@ -155,9 +139,7 @@ Shadow.SliceCenter = Rect.new(10, 10, 118, 118)
 Shadow.ZIndex = -1
 Shadow.Parent = Window
 
--- ============================================================
 -- TITLE BAR
--- ============================================================
 local TitleBar = Instance.new("Frame")
 TitleBar.Size = UDim2.new(1, 0, 0, 44)
 TitleBar.BackgroundColor3 = Theme.BackgroundLight
@@ -218,7 +200,7 @@ VersionBadge.Size = UDim2.new(0, 56, 0, 22)
 VersionBadge.Position = UDim2.new(0, 168, 0.5, -11)
 VersionBadge.BackgroundColor3 = Theme.Card
 VersionBadge.BorderSizePixel = 0
-VersionBadge.Text = "v4.0"
+VersionBadge.Text = "v5.0"
 VersionBadge.TextColor3 = Theme.AccentLight
 VersionBadge.Font = Enum.Font.GothamMedium
 VersionBadge.TextSize = 10
@@ -277,9 +259,7 @@ CloseBtn.MouseButton1Click:Connect(function()
     tw.Completed:Connect(function() ScreenGui:Destroy() end)
 end)
 
--- ============================================================
 -- DRAG
--- ============================================================
 local dragging, dragInput, dragStart, startPos = false, nil, nil, nil
 TitleBar.InputBegan:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
@@ -303,9 +283,7 @@ UserInputService.InputEnded:Connect(function(input)
     end
 end)
 
--- ============================================================
 -- TAB BAR
--- ============================================================
 local TabBar = Instance.new("ScrollingFrame")
 TabBar.Size = UDim2.new(1, -24, 0, 36)
 TabBar.Position = UDim2.new(0, 12, 0, 50)
@@ -329,9 +307,7 @@ TabList.Padding = UDim.new(0, 4)
 TabList.SortOrder = Enum.SortOrder.LayoutOrder
 TabList.Parent = TabContainer
 
--- ============================================================
--- CONTENT AREA
--- ============================================================
+-- CONTENT
 local ContentArea = Instance.new("Frame")
 ContentArea.Size = UDim2.new(1, -24, 1, -98)
 ContentArea.Position = UDim2.new(0, 12, 0, 92)
@@ -342,7 +318,6 @@ local Pages = {}
 local TabButtons = {}
 local currentTab = nil
 local tabIndex = 0
-local PageUpdaters = {}
 
 local TabIndicator = Instance.new("Frame")
 TabIndicator.Size = UDim2.new(0, 0, 0, 2)
@@ -353,9 +328,7 @@ TabIndicator.Visible = false
 TabIndicator.Parent = TabBar
 corner(TabIndicator, 1)
 
--- ============================================================
--- TAB CREATION SYSTEM
--- ============================================================
+-- TAB CREATION
 local function createTab(name, icon)
     tabIndex = tabIndex + 1
 
@@ -397,6 +370,7 @@ local function createTab(name, icon)
     page.ScrollBarThickness = 3
     page.ScrollBarImageColor3 = Theme.Accent
     page.CanvasSize = UDim2.new(0, 0, 0, 0)
+    page.AutomaticCanvasSize = Enum.AutomaticSize.Y
     page.ScrollingDirection = Enum.ScrollingDirection.Y
     page.VerticalScrollBarPosition = Enum.VerticalScrollBarPosition.Right
     page.Visible = false
@@ -408,15 +382,7 @@ local function createTab(name, icon)
     pageLayout.SortOrder = Enum.SortOrder.LayoutOrder
     pageLayout.Parent = page
 
-    -- SCROLLING FIX: Store updater function for this page
-    local pageName = name
-    PageUpdaters[pageName] = function()
-        if page and page.Parent then
-            page.CanvasSize = UDim2.new(0, 0, 0, pageLayout.AbsoluteContentSize + 20)
-        end
-    end
-
-    -- Also update on signal (backup)
+    -- SCROLLING: dual approach - signal + automatic
     pageLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
         page.CanvasSize = UDim2.new(0, 0, 0, pageLayout.AbsoluteContentSize + 20)
     end)
@@ -436,17 +402,17 @@ local function createTab(name, icon)
                 TweenService:Create(tabData.Icon, TweenInfo.new(0.2), {TextColor3 = Theme.TextDim}):Play()
             end
         end
-        for pageName2, pageFrame in pairs(Pages) do
-            pageFrame.Visible = (pageName2 == name)
+        for pageName, pageFrame in pairs(Pages) do
+            pageFrame.Visible = (pageName == name)
         end
         TabIndicator.Visible = true
         TweenService:Create(TabIndicator, TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
             Size = UDim2.new(0, tabBtn.AbsoluteSize.X - 8, 0, 2),
             Position = UDim2.new(0, tabBtn.AbsolutePosition.X - TabBar.AbsolutePosition.X + 4, 1, -2),
         }):Play()
+        -- Force canvas update
+        page.CanvasSize = UDim2.new(0, 0, 0, pageLayout.AbsoluteContentSize + 20)
         currentTab = name
-        -- Force update canvas when switching to this tab
-        if PageUpdaters[name] then PageUpdaters[name]() end
     end
 
     tabBtn.MouseButton1Click:Connect(function()
@@ -466,14 +432,11 @@ local function createTab(name, icon)
         end
     end)
 
-    -- ============================================================
-    -- PAGE ELEMENT API
-    -- ============================================================
     local api = {}
     local order = 0
 
     local function refreshCanvas()
-        if PageUpdaters[pageName] then PageUpdaters[pageName]() end
+        page.CanvasSize = UDim2.new(0, 0, 0, pageLayout.AbsoluteContentSize + 20)
     end
 
     function api:Section(title)
@@ -558,7 +521,6 @@ local function createTab(name, icon)
         end)
         update()
         refreshCanvas()
-
         return {
             Set = function(val) state = val; update(); if callback then callback(state) end end,
             Get = function() return state end,
@@ -894,29 +856,31 @@ local function createTab(name, icon)
         return { Get = function() return currentKey end }
     end
 
+    -- CRITICAL FIX: Select first tab IMMEDIATELY, not deferred
     if tabIndex == 1 then
-        task.defer(function() task.wait(0.1); selectTab() end)
+        task.spawn(function()
+            task.wait(0.05)
+            selectTab()
+        end)
     end
     return api
 end
 
--- ============================================================
--- SCROLLING FIX: Global loop to update all page canvases
--- ============================================================
+-- Global canvas update loop (backup)
 task.spawn(function()
     while true do
-        task.wait(0.3)
-        for _, updater in pairs(PageUpdaters) do
-            pcall(updater)
+        task.wait(1)
+        for name, page in pairs(Pages) do
+            local layout = page:FindFirstChildOfClass("UIListLayout")
+            if layout then
+                page.CanvasSize = UDim2.new(0, 0, 0, layout.AbsoluteContentSize + 20)
+            end
         end
-        -- Also update tab bar canvas
         TabBar.CanvasSize = UDim2.new(0, TabList.AbsoluteContentSize + 8, 0, 0)
     end
 end)
 
--- ============================================================
 -- NOTIFICATIONS
--- ============================================================
 local NotifContainer = Instance.new("Frame")
 NotifContainer.Size = UDim2.new(0, 280, 1, -120)
 NotifContainer.Position = UDim2.new(1, -290, 0, 60)
@@ -985,9 +949,7 @@ local function notify(title, message, duration, notifType)
     end)
 end
 
--- ============================================================
 -- CONFIG
--- ============================================================
 local Config = {
     AutoFarm = false, AutoQuest = false, FastAttack = true, BringMobs = true,
     AttackMethod = "Both", TweenSpeed = 200, SuperEffective = false,
@@ -1001,9 +963,7 @@ local Config = {
     FruitESP = false, ChestESP = false, IslandESP = false, MobESP = false, PlayerESP = false,
 }
 
--- ============================================================
 -- BACKEND
--- ============================================================
 local Character, Humanoid, RootPart
 local ActiveTween = nil
 
@@ -1046,25 +1006,11 @@ local function stopMovement()
     if ActiveTween then pcall(function() ActiveTween:Cancel() end); ActiveTween = nil end
 end
 
-local function tweenTo(pos, speed)
-    speed = speed or Config.TweenSpeed
-    if not RootPart then return end
-    stopMovement()
-    local dist = (RootPart.Position - pos).Magnitude
-    if dist < 15 then RootPart.CFrame = CFrame.new(pos); return end
-    local info = TweenInfo.new(dist / speed, Enum.EasingStyle.Linear)
-    ActiveTween = TweenService:Create(RootPart, info, {CFrame = CFrame.new(pos)})
-    ActiveTween:Play()
-    ActiveTween.Completed:Wait()
-    ActiveTween = nil
-end
-
 local function teleportTo(pos)
     if not RootPart then return end
     RootPart.CFrame = CFrame.new(pos)
 end
 
--- Quests (all 3 seas)
 local Quests = {
     [1]={Name="Trainee",Mob="Bandit",Pos=Vector3.new(1059,16,1548)},
     [8]={Name="Monkey",Mob="Monkey",Pos=Vector3.new(-1591,37,167)},
@@ -1201,7 +1147,6 @@ local function hasActiveQuest()
     return false
 end
 
--- Chest detection — comprehensive search
 local function findAllChests()
     local chests = {}
     local function checkObj(obj)
@@ -1229,7 +1174,6 @@ local function findAllChests()
     return chests
 end
 
--- Find all fruits
 local function findAllFruits()
     local fruits = {}
     for _, obj in pairs(Workspace:GetChildren()) do
@@ -1267,17 +1211,9 @@ local function hopServer()
     end
 end
 
--- ============================================================
--- ESP SYSTEM — COMPLETELY REWRITTEN
--- ============================================================
+-- ESP SYSTEM
 local function createESPManager(espType, color, getTextFunc)
-    local manager = {
-        Type = espType,
-        Color = color,
-        Enabled = false,
-        Tracked = {},
-        GetText = getTextFunc or function(obj) return espType end,
-    }
+    local manager = { Type = espType, Color = color, Enabled = false, Tracked = {}, GetText = getTextFunc or function() return espType end }
 
     function manager:Disable()
         self.Enabled = false
@@ -1288,14 +1224,11 @@ local function createESPManager(espType, color, getTextFunc)
         self.Tracked = {}
     end
 
-    function manager:Enable()
-        self.Enabled = true
-    end
+    function manager:Enable() self.Enabled = true end
 
     function manager:Add(obj)
         if not obj or not obj.Parent then return end
         if self.Tracked[obj] then return end
-
         local highlight = Instance.new("Highlight")
         highlight.FillColor = self.Color
         highlight.FillTransparency = 0.5
@@ -1338,30 +1271,18 @@ local function createESPManager(espType, color, getTextFunc)
 
     function manager:Update(getTargetsFunc)
         if not self.Enabled then return end
-
-        -- Remove dead objects
         for obj, _ in pairs(self.Tracked) do
-            if not obj.Parent then
-                self:Remove(obj)
-            end
+            if not obj.Parent then self:Remove(obj) end
         end
-
-        -- Add new objects
         local targets = getTargetsFunc()
         local targetSet = {}
         for _, target in pairs(targets) do
             targetSet[target] = true
             self:Add(target)
         end
-
-        -- Remove objects no longer in targets
         for obj, _ in pairs(self.Tracked) do
-            if not targetSet[obj] then
-                self:Remove(obj)
-            end
+            if not targetSet[obj] then self:Remove(obj) end
         end
-
-        -- Update labels
         for obj, data in pairs(self.Tracked) do
             if obj.Parent and data.Label then
                 pcall(function() data.Label.Text = self.GetText(obj) end)
@@ -1372,12 +1293,8 @@ local function createESPManager(espType, color, getTextFunc)
     return manager
 end
 
-local FruitESP = createESPManager("Fruit", Color3.fromRGB(255, 80, 80), function(obj)
-    return "Fruit: " .. obj.Name
-end)
-local ChestESP = createESPManager("Chest", Color3.fromRGB(255, 200, 50), function(obj)
-    return "Chest"
-end)
+local FruitESP = createESPManager("Fruit", Color3.fromRGB(255, 80, 80), function(obj) return "Fruit: " .. obj.Name end)
+local ChestESP = createESPManager("Chest", Color3.fromRGB(255, 200, 50), function(obj) return "Chest" end)
 local MobESP = createESPManager("Mob", Color3.fromRGB(255, 100, 200), function(obj)
     local hp = obj:FindFirstChild("Humanoid")
     return obj.Name .. " [" .. (hp and math.floor(hp.Health) or "?") .. " HP]"
@@ -1391,55 +1308,28 @@ end)
 local IslandBillboards = {}
 local function setupIslandESP()
     local islands = {
-        {"Windmill Village", Vector3.new(1059, 16, 1548)},
-        {"Jungle", Vector3.new(-1591, 37, 167)},
-        {"Pirate Village", Vector3.new(-1139, 13, 4049)},
-        {"Desert", Vector3.new(974, 6, 4556)},
-        {"Snow Island", Vector3.new(1366, 7, -477)},
-        {"MarineFord", Vector3.new(-4800, 22, 4314)},
-        {"Sky Island", Vector3.new(-4864, 724, -2609)},
-        {"Prison", Vector3.new(5310, 1, 4740)},
-        {"Colosseum", Vector3.new(-1166, 73, -4346)},
-        {"Magma Village", Vector3.new(-5414, 88, -2790)},
-        {"Underwater City", Vector3.new(-4570, 272, -2580)},
-        {"Fishman Island", Vector3.new(-2586, 8, -3343)},
-        {"Fountain City", Vector3.new(-2270, 16, 5215)},
-        {"Thunder God", Vector3.new(-7748, 24200, -24930)},
-        {"Ice Castle", Vector3.new(5950, 47, -7289)},
-        {"Forgotten Island", Vector3.new(-3034, 314, -7476)},
-        {"Floating Turtle", Vector3.new(-13425, 367, -9450)},
-        {"Castle on the Sea", Vector3.new(-13500, 285, -9600)},
-        {"Haunted Castle", Vector3.new(-9510, 141, 5845)},
-        {"Sea of Treats", Vector3.new(-9500, 141, 5800)},
-        {"Port Town", Vector3.new(-13442, 285, -9400)},
-        {"Hydra Island", Vector3.new(-13520, 285, -9620)},
+        {"Windmill Village", Vector3.new(1059, 16, 1548)}, {"Jungle", Vector3.new(-1591, 37, 167)},
+        {"Pirate Village", Vector3.new(-1139, 13, 4049)}, {"Desert", Vector3.new(974, 6, 4556)},
+        {"Snow Island", Vector3.new(1366, 7, -477)}, {"MarineFord", Vector3.new(-4800, 22, 4314)},
+        {"Sky Island", Vector3.new(-4864, 724, -2609)}, {"Prison", Vector3.new(5310, 1, 4740)},
+        {"Colosseum", Vector3.new(-1166, 73, -4346)}, {"Magma Village", Vector3.new(-5414, 88, -2790)},
+        {"Underwater City", Vector3.new(-4570, 272, -2580)}, {"Fishman Island", Vector3.new(-2586, 8, -3343)},
+        {"Fountain City", Vector3.new(-2270, 16, 5215)}, {"Thunder God", Vector3.new(-7748, 24200, -24930)},
+        {"Ice Castle", Vector3.new(5950, 47, -7289)}, {"Forgotten Island", Vector3.new(-3034, 314, -7476)},
+        {"Floating Turtle", Vector3.new(-13425, 367, -9450)}, {"Castle on the Sea", Vector3.new(-13500, 285, -9600)},
+        {"Haunted Castle", Vector3.new(-9510, 141, 5845)}, {"Sea of Treats", Vector3.new(-9500, 141, 5800)},
+        {"Port Town", Vector3.new(-13442, 285, -9400)}, {"Hydra Island", Vector3.new(-13520, 285, -9620)},
     }
     for _, island in pairs(islands) do
         local part = Instance.new("Part")
-        part.Position = island[2]
-        part.Size = Vector3.new(1, 1, 1)
-        part.Transparency = 1
-        part.CanCollide = false
-        part.Anchored = true
-        part.Parent = nil
-
+        part.Position = island[2]; part.Size = Vector3.new(1, 1, 1)
+        part.Transparency = 1; part.CanCollide = false; part.Anchored = true; part.Parent = nil
         local billboard = Instance.new("BillboardGui")
-        billboard.Size = UDim2.new(0, 200, 0, 30)
-        billboard.AlwaysOnTop = true
-        billboard.MaxDistance = 10000
-        billboard.Parent = part
-
+        billboard.Size = UDim2.new(0, 200, 0, 30); billboard.AlwaysOnTop = true; billboard.MaxDistance = 10000; billboard.Parent = part
         local label = Instance.new("TextLabel")
-        label.Size = UDim2.new(1, 0, 1, 0)
-        label.BackgroundTransparency = 1
-        label.Text = island[1]
-        label.TextColor3 = Color3.fromRGB(100, 200, 255)
-        label.Font = Enum.Font.GothamBold
-        label.TextSize = 14
-        label.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
-        label.TextStrokeTransparency = 0.3
-        label.Parent = billboard
-
+        label.Size = UDim2.new(1, 0, 1, 0); label.BackgroundTransparency = 1; label.Text = island[1]
+        label.TextColor3 = Color3.fromRGB(100, 200, 255); label.Font = Enum.Font.GothamBold; label.TextSize = 14
+        label.TextStrokeColor3 = Color3.fromRGB(0, 0, 0); label.TextStrokeTransparency = 0.3; label.Parent = billboard
         table.insert(IslandBillboards, part)
     end
 end
@@ -1450,164 +1340,83 @@ task.spawn(function()
     while true do
         task.wait(0.5)
         pcall(function()
-            -- Fruit ESP
             if FruitESP.Enabled then
                 FruitESP:Update(function()
-                    local targets = {}
+                    local t = {}
                     for _, obj in pairs(Workspace:GetChildren()) do
-                        if obj:IsA("Model") and obj.Name:lower():match("fruit") then
-                            table.insert(targets, obj)
-                        end
+                        if obj:IsA("Model") and obj.Name:lower():match("fruit") then table.insert(t, obj) end
                     end
-                    return targets
+                    return t
                 end)
             end
-
-            -- Chest ESP
             if ChestESP.Enabled then
                 ChestESP:Update(function()
-                    local targets = {}
-                    local chests = findAllChests()
-                    for _, chest in pairs(chests) do
-                        table.insert(targets, chest.Model)
-                    end
-                    return targets
+                    local t = {}
+                    for _, c in pairs(findAllChests()) do table.insert(t, c.Model) end
+                    return t
                 end)
             end
-
-            -- Mob ESP
             if MobESP.Enabled then
                 MobESP:Update(function()
-                    local targets = {}
+                    local t = {}
                     local enemies = Workspace:FindFirstChild("Enemies")
                     if enemies then
                         for _, mob in pairs(enemies:GetChildren()) do
-                            if mob:FindFirstChild("Humanoid") and mob.Humanoid.Health > 0 then
-                                table.insert(targets, mob)
-                            end
+                            if mob:FindFirstChild("Humanoid") and mob.Humanoid.Health > 0 then table.insert(t, mob) end
                         end
                     end
-                    return targets
+                    return t
                 end)
             end
-
-            -- Player ESP
             if PlayerESP.Enabled then
                 PlayerESP:Update(function()
-                    local targets = {}
+                    local t = {}
                     for _, plr in pairs(Players:GetPlayers()) do
-                        if plr ~= LocalPlayer and plr.Character then
-                            table.insert(targets, plr.Character)
-                        end
+                        if plr ~= LocalPlayer and plr.Character then table.insert(t, plr.Character) end
                     end
-                    return targets
+                    return t
                 end)
             end
-
-            -- Island ESP
             for _, part in pairs(IslandBillboards) do
-                if Config.IslandESP then
-                    part.Parent = Workspace
-                else
-                    part.Parent = nil
-                end
+                if Config.IslandESP then part.Parent = Workspace else part.Parent = nil end
             end
         end)
     end
 end)
 
--- ============================================================
--- THREE SEAS TELEPORT DATA
--- ============================================================
+-- THREE SEAS TELEPORT
 local SeaIslands = {
     ["First Sea"] = {
-        {"Windmill Village", Vector3.new(1059, 16, 1548)},
-        {"Jungle", Vector3.new(-1591, 37, 167)},
-        {"Pirate Village", Vector3.new(-1139, 13, 4049)},
-        {"Desert", Vector3.new(974, 6, 4556)},
-        {"Snow Island", Vector3.new(1366, 7, -477)},
-        {"MarineFord", Vector3.new(-4800, 22, 4314)},
-        {"Sky Island (Upper Yard)", Vector3.new(-4864, 724, -2609)},
-        {"Prison", Vector3.new(5310, 1, 4740)},
-        {"Colosseum", Vector3.new(-1166, 73, -4346)},
-        {"Magma Village", Vector3.new(-5414, 88, -2790)},
-        {"Underwater City", Vector3.new(-4570, 272, -2580)},
-        {"Fishman Island", Vector3.new(-2586, 8, -3343)},
-        {"Fountain City", Vector3.new(-2270, 16, 5215)},
-        {"Thunder God", Vector3.new(-7748, 24200, -24930)},
-        {"Ice Castle", Vector3.new(5950, 47, -7289)},
-        {"Forgotten Island", Vector3.new(-3034, 314, -7476)},
+        {"Windmill Village", Vector3.new(1059, 16, 1548)}, {"Jungle", Vector3.new(-1591, 37, 167)},
+        {"Pirate Village", Vector3.new(-1139, 13, 4049)}, {"Desert", Vector3.new(974, 6, 4556)},
+        {"Snow Island", Vector3.new(1366, 7, -477)}, {"MarineFord", Vector3.new(-4800, 22, 4314)},
+        {"Sky Island (Upper Yard)", Vector3.new(-4864, 724, -2609)}, {"Prison", Vector3.new(5310, 1, 4740)},
+        {"Colosseum", Vector3.new(-1166, 73, -4346)}, {"Magma Village", Vector3.new(-5414, 88, -2790)},
+        {"Underwater City", Vector3.new(-4570, 272, -2580)}, {"Fishman Island", Vector3.new(-2586, 8, -3343)},
+        {"Fountain City", Vector3.new(-2270, 16, 5215)}, {"Thunder God", Vector3.new(-7748, 24200, -24930)},
+        {"Ice Castle", Vector3.new(5950, 47, -7289)}, {"Forgotten Island", Vector3.new(-3034, 314, -7476)},
     },
     ["Second Sea"] = {
-        {"The Cafe", Vector3.new(-380, 74, 314)},
-        {"Light House", Vector3.new(-378, 74, 304)},
-        {"Dark Arena", Vector3.new(-340, 13, 30)},
-        {"Gravestone", Vector3.new(-480, 5, 330)},
-        {"Pirate Millionaire Island", Vector3.new(-1946, 100, -8346)},
-        {"Galley Captain Island", Vector3.new(-1810, 100, -8543)},
-        {"Island Empress Island", Vector3.new(-13500, 285, -9600)},
-        {"Forest Pirate Island", Vector3.new(-13425, 367, -9450)},
-        {"Mini Sky Island", Vector3.new(-13350, 375, -9350)},
-        {"Castle on the Sea", Vector3.new(-13500, 285, -9600)},
+        {"The Cafe", Vector3.new(-380, 74, 314)}, {"Light House", Vector3.new(-378, 74, 304)},
+        {"Dark Arena", Vector3.new(-340, 13, 30)}, {"Gravestone", Vector3.new(-480, 5, 330)},
+        {"Pirate Millionaire Island", Vector3.new(-1946, 100, -8346)}, {"Galley Captain Island", Vector3.new(-1810, 100, -8543)},
+        {"Island Empress Island", Vector3.new(-13500, 285, -9600)}, {"Forest Pirate Island", Vector3.new(-13425, 367, -9450)},
+        {"Mini Sky Island", Vector3.new(-13350, 375, -9350)}, {"Castle on the Sea", Vector3.new(-13500, 285, -9600)},
     },
     ["Third Sea"] = {
-        {"Port Town", Vector3.new(-13442, 285, -9400)},
-        {"Hydra Island", Vector3.new(-13520, 285, -9620)},
-        {"Great Tree (Third Sea)", Vector3.new(-13480, 380, -9500)},
-        {"Floating Turtle", Vector3.new(-13425, 367, -9450)},
-        {"Haunted Castle", Vector3.new(-9510, 141, 5845)},
-        {"Sea of Treats", Vector3.new(-9500, 141, 5800)},
-        {"Cocoa Warrior Island", Vector3.new(-13425, 367, -9450)},
-        {"Yeti Island", Vector3.new(-13440, 367, -9480)},
-        {"Peanut Island", Vector3.new(-13445, 367, -9490)},
-        {"Cake Queen Island", Vector3.new(-13460, 367, -9520)},
+        {"Port Town", Vector3.new(-13442, 285, -9400)}, {"Hydra Island", Vector3.new(-13520, 285, -9620)},
+        {"Great Tree (Third Sea)", Vector3.new(-13480, 380, -9500)}, {"Floating Turtle", Vector3.new(-13425, 367, -9450)},
+        {"Haunted Castle", Vector3.new(-9510, 141, 5845)}, {"Sea of Treats", Vector3.new(-9500, 141, 5800)},
+        {"Cocoa Warrior Island", Vector3.new(-13425, 367, -9450)}, {"Yeti Island", Vector3.new(-13440, 367, -9480)},
+        {"Peanut Island", Vector3.new(-13445, 367, -9490)}, {"Cake Queen Island", Vector3.new(-13460, 367, -9520)},
     },
 }
 
 -- ============================================================
--- BUILD PAGES
+-- BUILD PAGES — NO HOME TAB, FARM IS FIRST
 -- ============================================================
 
--- HOME
-local HomeTab = createTab("Home", "H")
-HomeTab:Section("Player Information")
-HomeTab:Label("Username: " .. LocalPlayer.Name)
-HomeTab:Label("Display Name: " .. LocalPlayer.DisplayName)
-local levelLabel = HomeTab:Label("Level: Loading...")
-local beliLabel = HomeTab:Label("Beli: Loading...")
-local fragLabel = HomeTab:Label("Fragments: Loading...")
-local questLabel = HomeTab:Label("Best Quest: None")
-
-task.spawn(function()
-    while true do
-        task.wait(2)
-        local data = LocalPlayer:FindFirstChild("Data")
-        if data then
-            if data:FindFirstChild("Level") then levelLabel.Set("Level: " .. tostring(data.Level.Value)) end
-            if data:FindFirstChild("Beli") then beliLabel.Set("Beli: " .. tostring(data.Beli.Value)) end
-            if data:FindFirstChild("Fragments") then fragLabel.Set("Fragments: " .. tostring(data.Fragments.Value)) end
-        end
-        local quest = getBestQuest()
-        if quest then questLabel.Set("Best Quest: " .. quest.Name .. " (Lv." .. quest.Req .. ")") end
-    end
-end)
-
-HomeTab:Section("Quick Actions")
-HomeTab:Button("Stop All Actions", function()
-    Config.AutoFarm = false; Config.AutoQuest = false; Config.AutoChests = false
-    Config.AutoFruits = false; Config.AutoStats = false; Config.AutoHop = false; Config.KillAura = false
-    stopMovement()
-    notify("Stopped", "All actions cancelled", 2, "warning")
-end)
-HomeTab:Button("Rejoin Server", function() TeleportService:Teleport(game.PlaceId, LocalPlayer) end)
-HomeTab:Button("Copy Server ID", function() setclipboard(game.JobId); notify("Copied", "Server ID copied", 2, "success") end)
-HomeTab:Button("Server Hop", function() hopServer() end)
-HomeTab:Section("About")
-HomeTab:Label("Ebanat Hub v4.0.0")
-HomeTab:Label("Built by ENI")
-HomeTab:Label("Press RightShift to toggle UI")
-
--- AUTO FARM
+-- AUTO FARM (first tab, auto-selects)
 local FarmTab = createTab("Farm", "S")
 FarmTab:Section("Combat")
 FarmTab:Toggle("Auto Farm", "Farms nearest mobs for XP", false, function(state)
@@ -1629,7 +1438,13 @@ FarmTab:Toggle("Kill Aura", "Attacks all nearby mobs", false, function(state)
     notify("Kill Aura", state and "Enabled" or "Disabled", 2, state and "success" or "warning")
 end)
 FarmTab:Slider("Aura Range", 10, 200, 50, " studs", function(val) Config.AuraRange = val end)
-FarmTab:Section("Manual Actions")
+FarmTab:Section("Quick Actions")
+FarmTab:Button("Stop All Actions", function()
+    Config.AutoFarm = false; Config.AutoQuest = false; Config.AutoChests = false
+    Config.AutoFruits = false; Config.AutoStats = false; Config.AutoHop = false; Config.KillAura = false
+    stopMovement()
+    notify("Stopped", "All actions cancelled", 2, "warning")
+end)
 FarmTab:Button("Farm Nearest Mob", function()
     local mob = getClosestMob()
     if mob then bringMob(mob); attackMob(mob); notify("Farm", "Attacking " .. mob.Name, 2)
@@ -1645,6 +1460,11 @@ FarmTab:Button("Take Best Quest", function()
         notify("Quest", "Taking quest: " .. quest.Name, 2)
     end
 end)
+FarmTab:Button("Rejoin Server", function() TeleportService:Teleport(game.PlaceId, LocalPlayer) end)
+FarmTab:Button("Server Hop", function() hopServer() end)
+FarmTab:Section("Info")
+FarmTab:Label("Ebanat Hub v5.0.0 - Built by ENI")
+FarmTab:Label("Press RightShift to toggle UI")
 
 -- Auto farm loop
 task.spawn(function()
@@ -1700,7 +1520,7 @@ task.spawn(function()
     end
 end)
 
--- CHESTS — with delay slider
+-- CHESTS
 local ChestTab = createTab("Chests", "$")
 ChestTab:Section("Auto Chest Farm")
 ChestTab:Toggle("Auto Collect Chests", "Teleports to and collects all chests", false, function(state)
@@ -1730,7 +1550,6 @@ ChestTab:Button("Collect All Chests Now", function()
     end)
 end)
 
--- Chest loop with delay
 task.spawn(function()
     while true do
         task.wait(0.5)
@@ -1754,7 +1573,7 @@ task.spawn(function()
     end
 end)
 
--- FRUITS — with Teleport to Fruits + Fruit ESP
+-- FRUITS
 local FruitsTab = createTab("Fruits", "F")
 FruitsTab:Section("Fruit Collection")
 FruitsTab:Toggle("Auto Farm Fruits", "Collects spawned devil fruits", false, function(state)
@@ -1768,11 +1587,7 @@ end)
 FruitsTab:Button("Teleport to Fruits", function()
     if not RootPart then return end
     local fruits = findAllFruits()
-    if #fruits == 0 then
-        notify("Teleport", "No fruits found in this server", 3, "warning")
-        return
-    end
-    -- Find nearest fruit
+    if #fruits == 0 then notify("Teleport", "No fruits found in this server", 3, "warning"); return end
     local nearest, nearestDist = nil, math.huge
     for _, fruit in pairs(fruits) do
         local dist = (RootPart.Position - fruit.Pos).Magnitude
@@ -1807,7 +1622,6 @@ FruitsTab:Button("Store Current Fruit", function()
     if comm then pcall(function() comm:InvokeServer("StoreFruit") end); notify("Storage", "Fruit stored", 2, "success") end
 end)
 
--- Fruit loop
 task.spawn(function()
     while true do
         task.wait(0.5)
@@ -1896,7 +1710,7 @@ task.spawn(function()
     end
 end)
 
--- ESP TAB
+-- ESP
 local ESPTab = createTab("ESP", "E")
 ESPTab:Section("Visual ESP")
 ESPTab:Toggle("Fruit ESP", "Highlights all devil fruits", false, function(state)
@@ -1931,16 +1745,13 @@ ESPTab:Button("Clear All ESP", function()
     notify("ESP", "All ESP cleared", 2, "warning")
 end)
 
--- TELEPORT — THREE SEAS
+-- TELEPORT
 local TeleportTab = createTab("Teleport", "T")
 for seaName, islands in pairs(SeaIslands) do
     TeleportTab:Section(seaName)
     for _, island in pairs(islands) do
         TeleportTab:Button(island[1], function()
-            if RootPart then
-                teleportTo(island[2])
-                notify("Teleport", "Teleported to " .. island[1], 2, "success")
-            end
+            if RootPart then teleportTo(island[2]); notify("Teleport", "Teleported to " .. island[1], 2, "success") end
         end)
     end
 end
@@ -2020,7 +1831,6 @@ LocalPlayer.Idled:Connect(function()
     end
 end)
 
--- KEYBIND
 UserInputService.InputBegan:Connect(function(input, gpe)
     if gpe then return end
     if input.KeyCode == Enum.KeyCode.RightShift then
@@ -2032,4 +1842,4 @@ end)
 task.wait(0.3)
 notify("Ebanat Hub", "Welcome, " .. LocalPlayer.Name .. "!", 4, "success")
 task.wait(1)
-notify("Loaded", "v4.0 - All systems operational", 3, "success")
+notify("Loaded", "v5.0 - All systems operational", 3, "success")
