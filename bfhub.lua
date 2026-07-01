@@ -1,7 +1,7 @@
 --[[
     EBANAT HUB | BLOX FRUITS
-    Version: 5.0.0 — Delta Compatible
-    Removed Home tab, fixed tab loading, fixed scrolling
+    Version: 5.1.0 — Delta Compatible
+    Fixed: Canvas size calculation (was clipping all content)
 ]]
 
 local gethui = gethui or function() return game:GetService("CoreGui") end
@@ -22,7 +22,6 @@ local Workspace = game:GetService("Workspace")
 local LocalPlayer = Players.LocalPlayer
 local Mouse = LocalPlayer:GetMouse()
 
--- THEME
 local Theme = {
     Background = Color3.fromRGB(15, 15, 20),
     BackgroundLight = Color3.fromRGB(22, 22, 28),
@@ -53,7 +52,6 @@ local ThemePresets = {
     ["Cyan"]   = { Color3.fromRGB(50, 200, 220), Color3.fromRGB(90, 230, 245), Color3.fromRGB(30, 150, 170) },
 }
 
--- UTILS
 local function corner(parent, radius)
     local c = Instance.new("UICorner")
     c.CornerRadius = UDim.new(0, radius or 8)
@@ -200,7 +198,7 @@ VersionBadge.Size = UDim2.new(0, 56, 0, 22)
 VersionBadge.Position = UDim2.new(0, 168, 0.5, -11)
 VersionBadge.BackgroundColor3 = Theme.Card
 VersionBadge.BorderSizePixel = 0
-VersionBadge.Text = "v5.0"
+VersionBadge.Text = "v5.1"
 VersionBadge.TextColor3 = Theme.AccentLight
 VersionBadge.Font = Enum.Font.GothamMedium
 VersionBadge.TextSize = 10
@@ -328,7 +326,9 @@ TabIndicator.Visible = false
 TabIndicator.Parent = TabBar
 corner(TabIndicator, 1)
 
--- TAB CREATION
+-- ============================================================
+-- TAB CREATION — MANUAL HEIGHT TRACKING (THE FIX)
+-- ============================================================
 local function createTab(name, icon)
     tabIndex = tabIndex + 1
 
@@ -363,6 +363,7 @@ local function createTab(name, icon)
     tabLabel.TextXAlignment = Enum.TextXAlignment.Left
     tabLabel.Parent = tabBtn
 
+    -- CRITICAL FIX: No AutomaticCanvasSize, manual height tracking
     local page = Instance.new("ScrollingFrame")
     page.Size = UDim2.new(1, 0, 1, 0)
     page.BackgroundTransparency = 1
@@ -370,7 +371,6 @@ local function createTab(name, icon)
     page.ScrollBarThickness = 3
     page.ScrollBarImageColor3 = Theme.Accent
     page.CanvasSize = UDim2.new(0, 0, 0, 0)
-    page.AutomaticCanvasSize = Enum.AutomaticSize.Y
     page.ScrollingDirection = Enum.ScrollingDirection.Y
     page.VerticalScrollBarPosition = Enum.VerticalScrollBarPosition.Right
     page.Visible = false
@@ -382,10 +382,12 @@ local function createTab(name, icon)
     pageLayout.SortOrder = Enum.SortOrder.LayoutOrder
     pageLayout.Parent = page
 
-    -- SCROLLING: dual approach - signal + automatic
-    pageLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
-        page.CanvasSize = UDim2.new(0, 0, 0, pageLayout.AbsoluteContentSize + 20)
-    end)
+    -- MANUAL HEIGHT TRACKER — this replaces the broken refreshCanvas()
+    local pageHeight = 0
+    local function addHeight(h)
+        pageHeight = pageHeight + h + 8 -- element height + padding
+        page.CanvasSize = UDim2.new(0, 0, 0, pageHeight)
+    end
 
     Pages[name] = page
     TabButtons[name] = { Button = tabBtn, Icon = tabIcon, Label = tabLabel }
@@ -410,8 +412,6 @@ local function createTab(name, icon)
             Size = UDim2.new(0, tabBtn.AbsoluteSize.X - 8, 0, 2),
             Position = UDim2.new(0, tabBtn.AbsolutePosition.X - TabBar.AbsolutePosition.X + 4, 1, -2),
         }):Play()
-        -- Force canvas update
-        page.CanvasSize = UDim2.new(0, 0, 0, pageLayout.AbsoluteContentSize + 20)
         currentTab = name
     end
 
@@ -435,10 +435,6 @@ local function createTab(name, icon)
     local api = {}
     local order = 0
 
-    local function refreshCanvas()
-        page.CanvasSize = UDim2.new(0, 0, 0, pageLayout.AbsoluteContentSize + 20)
-    end
-
     function api:Section(title)
         local section = Instance.new("Frame")
         section.Size = UDim2.new(1, 0, 0, 28)
@@ -455,7 +451,7 @@ local function createTab(name, icon)
         label.TextSize = 11
         label.TextXAlignment = Enum.TextXAlignment.Left
         label.Parent = section
-        refreshCanvas()
+        addHeight(28)
         return self
     end
 
@@ -520,7 +516,7 @@ local function createTab(name, icon)
             if callback then callback(state) end
         end)
         update()
-        refreshCanvas()
+        addHeight(44)
         return {
             Set = function(val) state = val; update(); if callback then callback(state) end end,
             Get = function() return state end,
@@ -555,7 +551,7 @@ local function createTab(name, icon)
             ripple(btnCard, btnCard.AbsoluteSize.X / 2, btnCard.AbsoluteSize.Y / 2)
             if callback then callback() end
         end)
-        refreshCanvas()
+        addHeight(38)
         return btnCard
     end
 
@@ -652,7 +648,7 @@ local function createTab(name, icon)
             end
         end)
         update(default or min)
-        refreshCanvas()
+        addHeight(56)
         return { Set = update, Get = function() return value end }
     end
 
@@ -701,6 +697,7 @@ local function createTab(name, icon)
 
         local expanded = false
         local selected = default or options[1]
+        local baseHeight = 40
 
         local hitbox = Instance.new("TextButton")
         hitbox.Size = UDim2.new(1, 0, 0, 40)
@@ -759,7 +756,6 @@ local function createTab(name, icon)
                     TweenService:Create(arrow, TweenInfo.new(0.2), {Text = "v"}):Play()
                     task.wait(0.2)
                     expanded = false
-                    refreshCanvas()
                 end)
             end
         end
@@ -775,11 +771,9 @@ local function createTab(name, icon)
                 TweenService:Create(ddCard, TweenInfo.new(0.2), {Size = UDim2.new(1, 0, 0, 40)}):Play()
                 TweenService:Create(arrow, TweenInfo.new(0.2), {Text = "v"}):Play()
             end
-            task.wait(0.25)
-            refreshCanvas()
         end)
 
-        refreshCanvas()
+        addHeight(40)
         return { Set = function(val) selected = val; selectedLabel.Text = val end, Get = function() return selected end }
     end
 
@@ -795,7 +789,7 @@ local function createTab(name, icon)
         lbl.LayoutOrder = order
         lbl.Parent = page
         order = order + 1
-        refreshCanvas()
+        addHeight(20)
         return { Set = function(val) lbl.Text = val end, Get = function() return lbl.Text end }
     end
 
@@ -852,30 +846,24 @@ local function createTab(name, icon)
                 if callback then callback() end
             end
         end)
-        refreshCanvas()
+        addHeight(38)
         return { Get = function() return currentKey end }
     end
 
-    -- CRITICAL FIX: Select first tab IMMEDIATELY, not deferred
+    -- Auto-select first tab
     if tabIndex == 1 then
         task.spawn(function()
-            task.wait(0.05)
+            task.wait(0.1)
             selectTab()
         end)
     end
     return api
 end
 
--- Global canvas update loop (backup)
+-- Update tab bar canvas
 task.spawn(function()
     while true do
-        task.wait(1)
-        for name, page in pairs(Pages) do
-            local layout = page:FindFirstChildOfClass("UIListLayout")
-            if layout then
-                page.CanvasSize = UDim2.new(0, 0, 0, layout.AbsoluteContentSize + 20)
-            end
-        end
+        task.wait(0.5)
         TabBar.CanvasSize = UDim2.new(0, TabList.AbsoluteContentSize + 8, 0, 0)
     end
 end)
@@ -1153,9 +1141,7 @@ local function findAllChests()
         if obj.Name:lower():match("chest") then
             local part = obj:FindFirstChildWhichIsA("BasePart")
             if not part and obj:IsA("BasePart") then part = obj end
-            if part then
-                table.insert(chests, {Model = obj, Part = part, Pos = part.Position})
-            end
+            if part then table.insert(chests, {Model = obj, Part = part, Pos = part.Position}) end
         end
     end
     for _, obj in pairs(Workspace:GetChildren()) do checkObj(obj) end
@@ -1165,9 +1151,7 @@ local function findAllChests()
             checkObj(island)
             for _, child in pairs(island:GetChildren()) do
                 checkObj(child)
-                for _, grandchild in pairs(child:GetChildren()) do
-                    checkObj(grandchild)
-                end
+                for _, grandchild in pairs(child:GetChildren()) do checkObj(grandchild) end
             end
         end
     end
@@ -1179,9 +1163,7 @@ local function findAllFruits()
     for _, obj in pairs(Workspace:GetChildren()) do
         if obj:IsA("Model") and obj.Name:lower():match("fruit") then
             local part = obj:FindFirstChildWhichIsA("BasePart")
-            if part then
-                table.insert(fruits, {Model = obj, Part = part, Pos = part.Position, Name = obj.Name})
-            end
+            if part then table.insert(fruits, {Model = obj, Part = part, Pos = part.Position, Name = obj.Name}) end
         end
     end
     return fruits
@@ -1189,8 +1171,7 @@ end
 
 local function hopServer()
     notify("Server Hop", "Searching for a new server...", 3, "warning")
-    local placeId = game.PlaceId
-    local url = "https://games.roblox.com/v1/games/" .. placeId .. "/servers/Public?sortOrder=Asc&limit=100"
+    local url = "https://games.roblox.com/v1/games/" .. game.PlaceId .. "/servers/Public?sortOrder=Asc&limit=100"
     local success, response = pcall(function() return HttpService:JSONDecode(game:HttpGet(url)) end)
     if success and response and response.data then
         local candidates = {}
@@ -1200,13 +1181,11 @@ local function hopServer()
             end
         end
         if #candidates > 0 then
-            local target = candidates[math.random(1, #candidates)]
             notify("Server Hop", "Joining new server...", 2, "success")
-            TeleportService:TeleportToPlaceInstance(placeId, target, LocalPlayer)
+            TeleportService:TeleportToPlaceInstance(game.PlaceId, candidates[math.random(1, #candidates)], LocalPlayer)
         else
             notify("Server Hop", "No servers found, retrying...", 2, "warning")
-            task.wait(2)
-            hopServer()
+            task.wait(2); hopServer()
         end
     end
 end
@@ -1214,7 +1193,6 @@ end
 -- ESP SYSTEM
 local function createESPManager(espType, color, getTextFunc)
     local manager = { Type = espType, Color = color, Enabled = false, Tracked = {}, GetText = getTextFunc or function() return espType end }
-
     function manager:Disable()
         self.Enabled = false
         for obj, data in pairs(self.Tracked) do
@@ -1223,29 +1201,21 @@ local function createESPManager(espType, color, getTextFunc)
         end
         self.Tracked = {}
     end
-
     function manager:Enable() self.Enabled = true end
-
     function manager:Add(obj)
-        if not obj or not obj.Parent then return end
-        if self.Tracked[obj] then return end
+        if not obj or not obj.Parent or self.Tracked[obj] then return end
         local highlight = Instance.new("Highlight")
         highlight.FillColor = self.Color
         highlight.FillTransparency = 0.5
         highlight.OutlineColor = Color3.fromRGB(255, 255, 255)
-        highlight.OutlineTransparency = 0
         highlight.Adornee = obj
-        highlight.Name = "EbanatESP_" .. self.Type
         highlight.Parent = obj
-
         local billboard = Instance.new("BillboardGui")
         billboard.Size = UDim2.new(0, 200, 0, 30)
         billboard.AlwaysOnTop = true
         billboard.MaxDistance = 5000
         billboard.Adornee = obj
-        billboard.Name = "EbanatESPLabel_" .. self.Type
         billboard.Parent = obj
-
         local label = Instance.new("TextLabel")
         label.Size = UDim2.new(1, 0, 1, 0)
         label.BackgroundTransparency = 1
@@ -1256,10 +1226,8 @@ local function createESPManager(espType, color, getTextFunc)
         label.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
         label.TextStrokeTransparency = 0.3
         label.Parent = billboard
-
         self.Tracked[obj] = {Highlight = highlight, Billboard = billboard, Label = label}
     end
-
     function manager:Remove(obj)
         local data = self.Tracked[obj]
         if data then
@@ -1268,28 +1236,17 @@ local function createESPManager(espType, color, getTextFunc)
             self.Tracked[obj] = nil
         end
     end
-
     function manager:Update(getTargetsFunc)
         if not self.Enabled then return end
-        for obj, _ in pairs(self.Tracked) do
-            if not obj.Parent then self:Remove(obj) end
-        end
+        for obj, _ in pairs(self.Tracked) do if not obj.Parent then self:Remove(obj) end end
         local targets = getTargetsFunc()
         local targetSet = {}
-        for _, target in pairs(targets) do
-            targetSet[target] = true
-            self:Add(target)
-        end
-        for obj, _ in pairs(self.Tracked) do
-            if not targetSet[obj] then self:Remove(obj) end
-        end
+        for _, target in pairs(targets) do targetSet[target] = true; self:Add(target) end
+        for obj, _ in pairs(self.Tracked) do if not targetSet[obj] then self:Remove(obj) end end
         for obj, data in pairs(self.Tracked) do
-            if obj.Parent and data.Label then
-                pcall(function() data.Label.Text = self.GetText(obj) end)
-            end
+            if obj.Parent and data.Label then pcall(function() data.Label.Text = self.GetText(obj) end) end
         end
     end
-
     return manager
 end
 
@@ -1304,9 +1261,8 @@ local PlayerESP = createESPManager("Player", Color3.fromRGB(100, 255, 100), func
     return plr and plr.Name or "Player"
 end)
 
--- Island ESP
 local IslandBillboards = {}
-local function setupIslandESP()
+do
     local islands = {
         {"Windmill Village", Vector3.new(1059, 16, 1548)}, {"Jungle", Vector3.new(-1591, 37, 167)},
         {"Pirate Village", Vector3.new(-1139, 13, 4049)}, {"Desert", Vector3.new(974, 6, 4556)},
@@ -1333,9 +1289,7 @@ local function setupIslandESP()
         table.insert(IslandBillboards, part)
     end
 end
-setupIslandESP()
 
--- ESP update loop
 task.spawn(function()
     while true do
         task.wait(0.5)
@@ -1384,7 +1338,7 @@ task.spawn(function()
     end
 end)
 
--- THREE SEAS TELEPORT
+-- THREE SEAS
 local SeaIslands = {
     ["First Sea"] = {
         {"Windmill Village", Vector3.new(1059, 16, 1548)}, {"Jungle", Vector3.new(-1591, 37, 167)},
@@ -1413,10 +1367,10 @@ local SeaIslands = {
 }
 
 -- ============================================================
--- BUILD PAGES — NO HOME TAB, FARM IS FIRST
+-- BUILD PAGES
 -- ============================================================
 
--- AUTO FARM (first tab, auto-selects)
+-- FARM (first tab)
 local FarmTab = createTab("Farm", "S")
 FarmTab:Section("Combat")
 FarmTab:Toggle("Auto Farm", "Farms nearest mobs for XP", false, function(state)
@@ -1463,7 +1417,7 @@ end)
 FarmTab:Button("Rejoin Server", function() TeleportService:Teleport(game.PlaceId, LocalPlayer) end)
 FarmTab:Button("Server Hop", function() hopServer() end)
 FarmTab:Section("Info")
-FarmTab:Label("Ebanat Hub v5.0.0 - Built by ENI")
+FarmTab:Label("Ebanat Hub v5.1.0 - Built by ENI")
 FarmTab:Label("Press RightShift to toggle UI")
 
 -- Auto farm loop
@@ -1842,4 +1796,4 @@ end)
 task.wait(0.3)
 notify("Ebanat Hub", "Welcome, " .. LocalPlayer.Name .. "!", 4, "success")
 task.wait(1)
-notify("Loaded", "v5.0 - All systems operational", 3, "success")
+notify("Loaded", "v5.1 - All systems operational", 3, "success")
