@@ -1,7 +1,7 @@
 --[[
     EBANAT HUB | BLOX FRUITS
-    Version: 5.1.0 — Delta Compatible
-    Fixed: Canvas size calculation (was clipping all content)
+    Version: 5.2.0 — Delta Compatible
+    Added: Sea teleport buttons, fixed chest ESP cleanup
 ]]
 
 local gethui = gethui or function() return game:GetService("CoreGui") end
@@ -198,7 +198,7 @@ VersionBadge.Size = UDim2.new(0, 56, 0, 22)
 VersionBadge.Position = UDim2.new(0, 168, 0.5, -11)
 VersionBadge.BackgroundColor3 = Theme.Card
 VersionBadge.BorderSizePixel = 0
-VersionBadge.Text = "v5.1"
+VersionBadge.Text = "v5.2"
 VersionBadge.TextColor3 = Theme.AccentLight
 VersionBadge.Font = Enum.Font.GothamMedium
 VersionBadge.TextSize = 10
@@ -326,9 +326,7 @@ TabIndicator.Visible = false
 TabIndicator.Parent = TabBar
 corner(TabIndicator, 1)
 
--- ============================================================
--- TAB CREATION — MANUAL HEIGHT TRACKING (THE FIX)
--- ============================================================
+-- TAB CREATION
 local function createTab(name, icon)
     tabIndex = tabIndex + 1
 
@@ -363,7 +361,6 @@ local function createTab(name, icon)
     tabLabel.TextXAlignment = Enum.TextXAlignment.Left
     tabLabel.Parent = tabBtn
 
-    -- CRITICAL FIX: No AutomaticCanvasSize, manual height tracking
     local page = Instance.new("ScrollingFrame")
     page.Size = UDim2.new(1, 0, 1, 0)
     page.BackgroundTransparency = 1
@@ -382,10 +379,9 @@ local function createTab(name, icon)
     pageLayout.SortOrder = Enum.SortOrder.LayoutOrder
     pageLayout.Parent = page
 
-    -- MANUAL HEIGHT TRACKER — this replaces the broken refreshCanvas()
     local pageHeight = 0
     local function addHeight(h)
-        pageHeight = pageHeight + h + 8 -- element height + padding
+        pageHeight = pageHeight + h + 8
         page.CanvasSize = UDim2.new(0, 0, 0, pageHeight)
     end
 
@@ -697,7 +693,6 @@ local function createTab(name, icon)
 
         local expanded = false
         local selected = default or options[1]
-        local baseHeight = 40
 
         local hitbox = Instance.new("TextButton")
         hitbox.Size = UDim2.new(1, 0, 0, 40)
@@ -850,17 +845,12 @@ local function createTab(name, icon)
         return { Get = function() return currentKey end }
     end
 
-    -- Auto-select first tab
     if tabIndex == 1 then
-        task.spawn(function()
-            task.wait(0.1)
-            selectTab()
-        end)
+        task.spawn(function() task.wait(0.1); selectTab() end)
     end
     return api
 end
 
--- Update tab bar canvas
 task.spawn(function()
     while true do
         task.wait(0.5)
@@ -1135,13 +1125,17 @@ local function hasActiveQuest()
     return false
 end
 
+-- CHEST DETECTION — checks if part still exists and is visible
 local function findAllChests()
     local chests = {}
     local function checkObj(obj)
         if obj.Name:lower():match("chest") then
             local part = obj:FindFirstChildWhichIsA("BasePart")
             if not part and obj:IsA("BasePart") then part = obj end
-            if part then table.insert(chests, {Model = obj, Part = part, Pos = part.Position}) end
+            -- Only add if part exists and is not fully transparent
+            if part and part.Transparency < 1 then
+                table.insert(chests, {Model = obj, Part = part, Pos = part.Position})
+            end
         end
     end
     for _, obj in pairs(Workspace:GetChildren()) do checkObj(obj) end
@@ -1190,6 +1184,22 @@ local function hopServer()
     end
 end
 
+-- SEA TELEPORT — uses TeleportService to jump between place IDs
+local SeaPlaceIds = {
+    ["First Sea"] = 2753915549,
+    ["Second Sea"] = 4442272183,
+    ["Third Sea"] = 7449423635,
+}
+
+local function teleportToSea(seaName)
+    local placeId = SeaPlaceIds[seaName]
+    if not placeId then return end
+    notify("Teleport", "Teleporting to " .. seaName .. "...", 3, "warning")
+    pcall(function()
+        TeleportService:Teleport(placeId, LocalPlayer)
+    end)
+end
+
 -- ESP SYSTEM
 local function createESPManager(espType, color, getTextFunc)
     local manager = { Type = espType, Color = color, Enabled = false, Tracked = {}, GetText = getTextFunc or function() return espType end }
@@ -1236,15 +1246,32 @@ local function createESPManager(espType, color, getTextFunc)
             self.Tracked[obj] = nil
         end
     end
-    function manager:Update(getTargetsFunc)
+    function manager:Update(getTargetsFunc, isValidFunc)
         if not self.Enabled then return end
-        for obj, _ in pairs(self.Tracked) do if not obj.Parent then self:Remove(obj) end end
+        -- Remove invalid objects
+        for obj, _ in pairs(self.Tracked) do
+            if not obj.Parent or (isValidFunc and not isValidFunc(obj)) then
+                self:Remove(obj)
+            end
+        end
+        -- Add new objects
         local targets = getTargetsFunc()
         local targetSet = {}
-        for _, target in pairs(targets) do targetSet[target] = true; self:Add(target) end
-        for obj, _ in pairs(self.Tracked) do if not targetSet[obj] then self:Remove(obj) end end
+        for _, target in pairs(targets) do
+            targetSet[target] = true
+            self:Add(target)
+        end
+        -- Remove objects no longer in targets
+        for obj, _ in pairs(self.Tracked) do
+            if not targetSet[obj] then
+                self:Remove(obj)
+            end
+        end
+        -- Update labels
         for obj, data in pairs(self.Tracked) do
-            if obj.Parent and data.Label then pcall(function() data.Label.Text = self.GetText(obj) end) end
+            if obj.Parent and data.Label then
+                pcall(function() data.Label.Text = self.GetText(obj) end)
+            end
         end
     end
     return manager
@@ -1260,6 +1287,16 @@ local PlayerESP = createESPManager("Player", Color3.fromRGB(100, 255, 100), func
     local plr = Players:GetPlayerFromCharacter(obj)
     return plr and plr.Name or "Player"
 end)
+
+-- Chest validity check: part exists and is visible
+local function isChestValid(obj)
+    if not obj or not obj.Parent then return false end
+    local part = obj:FindFirstChildWhichIsA("BasePart")
+    if not part and obj:IsA("BasePart") then part = obj end
+    if not part then return false end
+    if part.Transparency >= 1 then return false end
+    return true
+end
 
 local IslandBillboards = {}
 do
@@ -1290,6 +1327,7 @@ do
     end
 end
 
+-- ESP update loop — with chest validity check
 task.spawn(function()
     while true do
         task.wait(0.5)
@@ -1303,12 +1341,13 @@ task.spawn(function()
                     return t
                 end)
             end
+            -- CHEST ESP FIX: pass isValidFunc to check if chest is still valid
             if ChestESP.Enabled then
                 ChestESP:Update(function()
                     local t = {}
                     for _, c in pairs(findAllChests()) do table.insert(t, c.Model) end
                     return t
-                end)
+                end, isChestValid)
             end
             if MobESP.Enabled then
                 MobESP:Update(function()
@@ -1338,7 +1377,7 @@ task.spawn(function()
     end
 end)
 
--- THREE SEAS
+-- THREE SEAS ISLAND TELEPORT DATA
 local SeaIslands = {
     ["First Sea"] = {
         {"Windmill Village", Vector3.new(1059, 16, 1548)}, {"Jungle", Vector3.new(-1591, 37, 167)},
@@ -1370,7 +1409,7 @@ local SeaIslands = {
 -- BUILD PAGES
 -- ============================================================
 
--- FARM (first tab)
+-- FARM
 local FarmTab = createTab("Farm", "S")
 FarmTab:Section("Combat")
 FarmTab:Toggle("Auto Farm", "Farms nearest mobs for XP", false, function(state)
@@ -1417,10 +1456,9 @@ end)
 FarmTab:Button("Rejoin Server", function() TeleportService:Teleport(game.PlaceId, LocalPlayer) end)
 FarmTab:Button("Server Hop", function() hopServer() end)
 FarmTab:Section("Info")
-FarmTab:Label("Ebanat Hub v5.1.0 - Built by ENI")
+FarmTab:Label("Ebanat Hub v5.2.0 - Built by ENI")
 FarmTab:Label("Press RightShift to toggle UI")
 
--- Auto farm loop
 task.spawn(function()
     while true do
         task.wait(0.1)
@@ -1448,7 +1486,6 @@ task.spawn(function()
     end
 end)
 
--- Kill Aura loop
 task.spawn(function()
     while true do
         task.wait(0.1)
@@ -1699,8 +1736,20 @@ ESPTab:Button("Clear All ESP", function()
     notify("ESP", "All ESP cleared", 2, "warning")
 end)
 
--- TELEPORT
+-- TELEPORT — WITH SEA TELEPORT BUTTONS AT TOP
 local TeleportTab = createTab("Teleport", "T")
+-- SEA TELEPORT BUTTONS FIRST
+TeleportTab:Section("World Teleport (Instant)")
+TeleportTab:Button("Teleport to First Sea", function()
+    teleportToSea("First Sea")
+end)
+TeleportTab:Button("Teleport to Second Sea", function()
+    teleportToSea("Second Sea")
+end)
+TeleportTab:Button("Teleport to Third Sea", function()
+    teleportToSea("Third Sea")
+end)
+-- ISLAND TELEPORTS
 for seaName, islands in pairs(SeaIslands) do
     TeleportTab:Section(seaName)
     for _, island in pairs(islands) do
@@ -1796,4 +1845,4 @@ end)
 task.wait(0.3)
 notify("Ebanat Hub", "Welcome, " .. LocalPlayer.Name .. "!", 4, "success")
 task.wait(1)
-notify("Loaded", "v5.1 - All systems operational", 3, "success")
+notify("Loaded", "v5.2 - All systems operational", 3, "success")
