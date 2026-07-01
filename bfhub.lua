@@ -1,7 +1,7 @@
 --[[
     EBANAT HUB | BLOX FRUITS
-    Version: 3.0.0 — Delta Compatible
-    Fixed: Cancellable actions, chest detection, ESP system, scrolling, 3 seas teleport
+    Version: 4.0.0 — Delta Compatible
+    Fixed: Scrolling, ESP system, chest delay, fruits tab additions
 ]]
 
 -- ============================================================
@@ -131,7 +131,7 @@ UIScale.Scale = 1
 UIScale.Parent = ScreenGui
 
 -- ============================================================
--- MAIN WINDOW — slightly larger
+-- MAIN WINDOW
 -- ============================================================
 local Window = Instance.new("Frame")
 Window.Size = UDim2.new(0, 680, 0, 460)
@@ -218,7 +218,7 @@ VersionBadge.Size = UDim2.new(0, 56, 0, 22)
 VersionBadge.Position = UDim2.new(0, 168, 0.5, -11)
 VersionBadge.BackgroundColor3 = Theme.Card
 VersionBadge.BorderSizePixel = 0
-VersionBadge.Text = "v3.0"
+VersionBadge.Text = "v4.0"
 VersionBadge.TextColor3 = Theme.AccentLight
 VersionBadge.Font = Enum.Font.GothamMedium
 VersionBadge.TextSize = 10
@@ -304,7 +304,7 @@ UserInputService.InputEnded:Connect(function(input)
 end)
 
 -- ============================================================
--- TAB BAR — horizontal scrolling frame
+-- TAB BAR
 -- ============================================================
 local TabBar = Instance.new("ScrollingFrame")
 TabBar.Size = UDim2.new(1, -24, 0, 36)
@@ -330,7 +330,7 @@ TabList.SortOrder = Enum.SortOrder.LayoutOrder
 TabList.Parent = TabContainer
 
 -- ============================================================
--- CONTENT AREA — fixed sizing
+-- CONTENT AREA
 -- ============================================================
 local ContentArea = Instance.new("Frame")
 ContentArea.Size = UDim2.new(1, -24, 1, -98)
@@ -342,6 +342,7 @@ local Pages = {}
 local TabButtons = {}
 local currentTab = nil
 local tabIndex = 0
+local PageUpdaters = {}
 
 local TabIndicator = Instance.new("Frame")
 TabIndicator.Size = UDim2.new(0, 0, 0, 2)
@@ -353,7 +354,7 @@ TabIndicator.Parent = TabBar
 corner(TabIndicator, 1)
 
 -- ============================================================
--- TAB CREATION — with FIXED scrolling
+-- TAB CREATION SYSTEM
 -- ============================================================
 local function createTab(name, icon)
     tabIndex = tabIndex + 1
@@ -396,7 +397,8 @@ local function createTab(name, icon)
     page.ScrollBarThickness = 3
     page.ScrollBarImageColor3 = Theme.Accent
     page.CanvasSize = UDim2.new(0, 0, 0, 0)
-    page.AutomaticCanvasSize = Enum.AutomaticSize.None
+    page.ScrollingDirection = Enum.ScrollingDirection.Y
+    page.VerticalScrollBarPosition = Enum.VerticalScrollBarPosition.Right
     page.Visible = false
     page.Parent = ContentArea
     pad(page, 0, 0, 0, 4)
@@ -406,18 +408,21 @@ local function createTab(name, icon)
     pageLayout.SortOrder = Enum.SortOrder.LayoutOrder
     pageLayout.Parent = page
 
-    -- CRITICAL FIX: Manual CanvasSize update
+    -- SCROLLING FIX: Store updater function for this page
+    local pageName = name
+    PageUpdaters[pageName] = function()
+        if page and page.Parent then
+            page.CanvasSize = UDim2.new(0, 0, 0, pageLayout.AbsoluteContentSize + 20)
+        end
+    end
+
+    -- Also update on signal (backup)
     pageLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
-        page.CanvasSize = UDim2.new(0, 0, 0, pageLayout.AbsoluteContentSize + 12)
+        page.CanvasSize = UDim2.new(0, 0, 0, pageLayout.AbsoluteContentSize + 20)
     end)
 
     Pages[name] = page
     TabButtons[name] = { Button = tabBtn, Icon = tabIcon, Label = tabLabel }
-
-    -- Update tab bar canvas size
-    TabList:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
-        TabBar.CanvasSize = UDim2.new(0, TabList.AbsoluteContentSize + 8, 0, 0)
-    end)
 
     local function selectTab()
         for tabName, tabData in pairs(TabButtons) do
@@ -431,8 +436,8 @@ local function createTab(name, icon)
                 TweenService:Create(tabData.Icon, TweenInfo.new(0.2), {TextColor3 = Theme.TextDim}):Play()
             end
         end
-        for pageName, pageFrame in pairs(Pages) do
-            pageFrame.Visible = (pageName == name)
+        for pageName2, pageFrame in pairs(Pages) do
+            pageFrame.Visible = (pageName2 == name)
         end
         TabIndicator.Visible = true
         TweenService:Create(TabIndicator, TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
@@ -440,6 +445,8 @@ local function createTab(name, icon)
             Position = UDim2.new(0, tabBtn.AbsolutePosition.X - TabBar.AbsolutePosition.X + 4, 1, -2),
         }):Play()
         currentTab = name
+        -- Force update canvas when switching to this tab
+        if PageUpdaters[name] then PageUpdaters[name]() end
     end
 
     tabBtn.MouseButton1Click:Connect(function()
@@ -459,8 +466,15 @@ local function createTab(name, icon)
         end
     end)
 
+    -- ============================================================
+    -- PAGE ELEMENT API
+    -- ============================================================
     local api = {}
     local order = 0
+
+    local function refreshCanvas()
+        if PageUpdaters[pageName] then PageUpdaters[pageName]() end
+    end
 
     function api:Section(title)
         local section = Instance.new("Frame")
@@ -478,6 +492,7 @@ local function createTab(name, icon)
         label.TextSize = 11
         label.TextXAlignment = Enum.TextXAlignment.Left
         label.Parent = section
+        refreshCanvas()
         return self
     end
 
@@ -542,6 +557,7 @@ local function createTab(name, icon)
             if callback then callback(state) end
         end)
         update()
+        refreshCanvas()
 
         return {
             Set = function(val) state = val; update(); if callback then callback(state) end end,
@@ -577,6 +593,7 @@ local function createTab(name, icon)
             ripple(btnCard, btnCard.AbsoluteSize.X / 2, btnCard.AbsoluteSize.Y / 2)
             if callback then callback() end
         end)
+        refreshCanvas()
         return btnCard
     end
 
@@ -673,6 +690,7 @@ local function createTab(name, icon)
             end
         end)
         update(default or min)
+        refreshCanvas()
         return { Set = update, Get = function() return value end }
     end
 
@@ -779,6 +797,7 @@ local function createTab(name, icon)
                     TweenService:Create(arrow, TweenInfo.new(0.2), {Text = "v"}):Play()
                     task.wait(0.2)
                     expanded = false
+                    refreshCanvas()
                 end)
             end
         end
@@ -794,8 +813,11 @@ local function createTab(name, icon)
                 TweenService:Create(ddCard, TweenInfo.new(0.2), {Size = UDim2.new(1, 0, 0, 40)}):Play()
                 TweenService:Create(arrow, TweenInfo.new(0.2), {Text = "v"}):Play()
             end
+            task.wait(0.25)
+            refreshCanvas()
         end)
 
+        refreshCanvas()
         return { Set = function(val) selected = val; selectedLabel.Text = val end, Get = function() return selected end }
     end
 
@@ -811,6 +833,7 @@ local function createTab(name, icon)
         lbl.LayoutOrder = order
         lbl.Parent = page
         order = order + 1
+        refreshCanvas()
         return { Set = function(val) lbl.Text = val end, Get = function() return lbl.Text end }
     end
 
@@ -867,6 +890,7 @@ local function createTab(name, icon)
                 if callback then callback() end
             end
         end)
+        refreshCanvas()
         return { Get = function() return currentKey end }
     end
 
@@ -875,6 +899,20 @@ local function createTab(name, icon)
     end
     return api
 end
+
+-- ============================================================
+-- SCROLLING FIX: Global loop to update all page canvases
+-- ============================================================
+task.spawn(function()
+    while true do
+        task.wait(0.3)
+        for _, updater in pairs(PageUpdaters) do
+            pcall(updater)
+        end
+        -- Also update tab bar canvas
+        TabBar.CanvasSize = UDim2.new(0, TabList.AbsoluteContentSize + 8, 0, 0)
+    end
+end)
 
 -- ============================================================
 -- NOTIFICATIONS
@@ -953,18 +991,18 @@ end
 local Config = {
     AutoFarm = false, AutoQuest = false, FastAttack = true, BringMobs = true,
     AttackMethod = "Both", TweenSpeed = 200, SuperEffective = false,
-    AutoChests = false, AutoFruits = false, AutoStoreFruits = false,
+    AutoChests = false, ChestDelay = 0.5,
+    AutoFruits = false, AutoStoreFruits = false,
     AutoBuyFruit = false, SelectedFruit = "Dragon",
     AutoStats = false, MeleePts = 25, DefensePts = 25, SwordPts = 25, GunPts = 0, FruitPts = 25,
     AutoHop = false, HopMinPlayers = 5,
     AntiAFK = true, KillAura = false, AuraRange = 50,
     UIScale = 1, SelectedTheme = "Purple",
-    -- ESP
     FruitESP = false, ChestESP = false, IslandESP = false, MobESP = false, PlayerESP = false,
 }
 
 -- ============================================================
--- BLOX FRUITS BACKEND
+-- BACKEND
 -- ============================================================
 local Character, Humanoid, RootPart
 local ActiveTween = nil
@@ -1004,24 +1042,16 @@ local function getCommE()
     return CommE
 end
 
--- CRITICAL FIX: stopMovement function to cancel tweens
 local function stopMovement()
-    if ActiveTween then
-        pcall(function() ActiveTween:Cancel() end)
-        ActiveTween = nil
-    end
+    if ActiveTween then pcall(function() ActiveTween:Cancel() end); ActiveTween = nil end
 end
 
--- Non-blocking tween (for manual actions only)
 local function tweenTo(pos, speed)
     speed = speed or Config.TweenSpeed
     if not RootPart then return end
     stopMovement()
     local dist = (RootPart.Position - pos).Magnitude
-    if dist < 15 then
-        RootPart.CFrame = CFrame.new(pos)
-        return
-    end
+    if dist < 15 then RootPart.CFrame = CFrame.new(pos); return end
     local info = TweenInfo.new(dist / speed, Enum.EasingStyle.Linear)
     ActiveTween = TweenService:Create(RootPart, info, {CFrame = CFrame.new(pos)})
     ActiveTween:Play()
@@ -1029,64 +1059,61 @@ local function tweenTo(pos, speed)
     ActiveTween = nil
 end
 
--- Instant teleport (for auto loops — cancellable)
 local function teleportTo(pos)
     if not RootPart then return end
     RootPart.CFrame = CFrame.new(pos)
 end
 
--- ============================================================
--- QUEST DATA — ALL THREE SEAS
--- ============================================================
+-- Quests (all 3 seas)
 local Quests = {
-    [1]    = {Name = "Trainee",           Mob = "Bandit",               Pos = Vector3.new(1059, 16, 1548)},
-    [8]    = {Name = "Monkey",            Mob = "Monkey",               Pos = Vector3.new(-1591, 37, 167)},
-    [15]   = {Name = "Gorilla",           Mob = "Gorilla",              Pos = Vector3.new(-1233, 6, -504)},
-    [30]   = {Name = "Buggy",             Mob = "Buggy Crew",           Pos = Vector3.new(-1139, 13, 4049)},
-    [45]   = {Name = "Desert",            Mob = "Desert Bandit",        Pos = Vector3.new(974, 6, 4556)},
-    [60]   = {Name = "Desert Officer",    Mob = "Desert Officer",       Pos = Vector3.new(1322, 6, 4236)},
-    [75]   = {Name = "Snow Bandit",       Mob = "Snow Bandit",          Pos = Vector3.new(1366, 7, -477)},
-    [90]   = {Name = "Snow Marine",       Mob = "Snow Marine",          Pos = Vector3.new(1536, 7, -478)},
-    [100]  = {Name = "Marine",            Mob = "Marine Lieutenant",    Pos = Vector3.new(-4800, 22, 4314)},
-    [120]  = {Name = "Sky",               Mob = "Sky Bandit",           Pos = Vector3.new(-4864, 724, -2609)},
-    [150]  = {Name = "Prisoner",          Mob = "Prisoner",             Pos = Vector3.new(5310, 1, 4740)},
-    [175]  = {Name = "Dangerous Prisoner",Mob = "Dangerous Prisoner",   Pos = Vector3.new(5400, 1, 4730)},
-    [200]  = {Name = "Tide Keeper",       Mob = "Tide Keeper",          Pos = Vector3.new(-4570, 272, -2580)},
-    [225]  = {Name = "Fishman Warrior",   Mob = "Fishman Warrior",      Pos = Vector3.new(-2586, 8, -3343)},
-    [275]  = {Name = "Wanda",             Mob = "Wanda",                Pos = Vector3.new(-1166, 73, -4346)},
-    [300]  = {Name = "Magma Ninja",       Mob = "Magma Ninja",          Pos = Vector3.new(-5414, 88, -2790)},
-    [350]  = {Name = "Marine Captain",    Mob = "Marine Captain",       Pos = Vector3.new(-2270, 16, 5215)},
-    [400]  = {Name = "Thunder God",       Mob = "Thunder God",          Pos = Vector3.new(-7748, 24200, -24930)},
-    [450]  = {Name = "Ice Soldier",       Mob = "Ice Soldier",          Pos = Vector3.new(5950, 47, -7289)},
-    [500]  = {Name = "Forgotten Warrior", Mob = "Forgotten Warrior",    Pos = Vector3.new(-3034, 314, -7476)},
-    [575]  = {Name = "Pirate Millionaire",Mob = "Pirate Millionaire",   Pos = Vector3.new(-1946, 100, -8346)},
-    [625]  = {Name = "Galley Captain",    Mob = "Galley Captain",       Pos = Vector3.new(-1810, 100, -8543)},
-    [700]  = {Name = "Island Empress",    Mob = "Island Empress",       Pos = Vector3.new(-13500, 285, -9600)},
-    [850]  = {Name = "Forest Pirate",     Mob = "Forest Pirate",        Pos = Vector3.new(-13425, 367, -9450)},
-    [900]  = {Name = "Mythological Pirate",Mob = "Mythological Pirate", Pos = Vector3.new(-13493, 370, -9490)},
-    [1000] = {Name = "Jungle Pirate",     Mob = "Jungle Pirate",        Pos = Vector3.new(-13300, 370, -9400)},
-    [1050] = {Name = "Musketeer Pirate",  Mob = "Musketeer Pirate",     Pos = Vector3.new(-13350, 375, -9350)},
-    [1100] = {Name = "Reborn Skeleton",   Mob = "Reborn Skeleton",      Pos = Vector3.new(-9510, 141, 5845)},
-    [1150] = {Name = "Living Zombie",     Mob = "Living Zombie",        Pos = Vector3.new(-9530, 141, 5810)},
-    [1200] = {Name = "Demonic Soul",      Mob = "Demonic Soul",         Pos = Vector3.new(-9520, 141, 5875)},
-    [1325] = {Name = "Posessed Mummy",    Mob = "Posessed Mummy",       Pos = Vector3.new(-9550, 141, 5825)},
-    [1500] = {Name = "Drowned Cook",      Mob = "Drowned Cook",         Pos = Vector3.new(-9500, 141, 5800)},
-    [1525] = {Name = "Pilot",             Mob = "Pilot",                Pos = Vector3.new(-13442, 285, -9400)},
-    [1575] = {Name = "Sea Soldier",       Mob = "Sea Soldier",          Pos = Vector3.new(-13460, 285, -9420)},
-    [1625] = {Name = "Water Fighter",     Mob = "Water Fighter",        Pos = Vector3.new(-13480, 285, -9440)},
-    [1700] = {Name = "Gargoyle",          Mob = "Gargoyle",             Pos = Vector3.new(-13500, 285, -9600)},
-    [1725] = {Name = "Dragon Talon Sage", Mob = "Dragon Talon Sage",    Pos = Vector3.new(-13520, 285, -9620)},
-    [1775] = {Name = "Giant Islander",    Mob = "Giant Islander",       Pos = Vector3.new(-13480, 380, -9500)},
-    [1800] = {Name = "Dragon Talon",      Mob = "Dragon Talon",         Pos = Vector3.new(-13540, 285, -9640)},
-    [1875] = {Name = "Street Thug",       Mob = "Street Thug",          Pos = Vector3.new(-13400, 285, -9380)},
-    [2175] = {Name = "Cocoa Warrior",     Mob = "Cocoa Warrior",        Pos = Vector3.new(-13425, 367, -9450)},
-    [2200] = {Name = "Chocolate Bar Baker",Mob = "Chocolate Bar Baker", Pos = Vector3.new(-13430, 367, -9460)},
-    [2225] = {Name = "Sweet Pirate",      Mob = "Sweet Pirate",         Pos = Vector3.new(-13435, 367, -9470)},
-    [2250] = {Name = "Yeti",              Mob = "Yeti",                 Pos = Vector3.new(-13440, 367, -9480)},
-    [2275] = {Name = "Peanut Scout",      Mob = "Peanut Scout",         Pos = Vector3.new(-13445, 367, -9490)},
-    [2300] = {Name = "Peanut President",  Mob = "Peanut President",     Pos = Vector3.new(-13450, 367, -9500)},
-    [2325] = {Name = "Big MOM",           Mob = "Big MOM",              Pos = Vector3.new(-13455, 367, -9510)},
-    [2350] = {Name = "Cake Queen",        Mob = "Cake Queen",           Pos = Vector3.new(-13460, 367, -9520)},
+    [1]={Name="Trainee",Mob="Bandit",Pos=Vector3.new(1059,16,1548)},
+    [8]={Name="Monkey",Mob="Monkey",Pos=Vector3.new(-1591,37,167)},
+    [15]={Name="Gorilla",Mob="Gorilla",Pos=Vector3.new(-1233,6,-504)},
+    [30]={Name="Buggy",Mob="Buggy Crew",Pos=Vector3.new(-1139,13,4049)},
+    [45]={Name="Desert",Mob="Desert Bandit",Pos=Vector3.new(974,6,4556)},
+    [60]={Name="Desert Officer",Mob="Desert Officer",Pos=Vector3.new(1322,6,4236)},
+    [75]={Name="Snow Bandit",Mob="Snow Bandit",Pos=Vector3.new(1366,7,-477)},
+    [90]={Name="Snow Marine",Mob="Snow Marine",Pos=Vector3.new(1536,7,-478)},
+    [100]={Name="Marine",Mob="Marine Lieutenant",Pos=Vector3.new(-4800,22,4314)},
+    [120]={Name="Sky",Mob="Sky Bandit",Pos=Vector3.new(-4864,724,-2609)},
+    [150]={Name="Prisoner",Mob="Prisoner",Pos=Vector3.new(5310,1,4740)},
+    [175]={Name="Dangerous Prisoner",Mob="Dangerous Prisoner",Pos=Vector3.new(5400,1,4730)},
+    [200]={Name="Tide Keeper",Mob="Tide Keeper",Pos=Vector3.new(-4570,272,-2580)},
+    [225]={Name="Fishman Warrior",Mob="Fishman Warrior",Pos=Vector3.new(-2586,8,-3343)},
+    [275]={Name="Wanda",Mob="Wanda",Pos=Vector3.new(-1166,73,-4346)},
+    [300]={Name="Magma Ninja",Mob="Magma Ninja",Pos=Vector3.new(-5414,88,-2790)},
+    [350]={Name="Marine Captain",Mob="Marine Captain",Pos=Vector3.new(-2270,16,5215)},
+    [400]={Name="Thunder God",Mob="Thunder God",Pos=Vector3.new(-7748,24200,-24930)},
+    [450]={Name="Ice Soldier",Mob="Ice Soldier",Pos=Vector3.new(5950,47,-7289)},
+    [500]={Name="Forgotten Warrior",Mob="Forgotten Warrior",Pos=Vector3.new(-3034,314,-7476)},
+    [575]={Name="Pirate Millionaire",Mob="Pirate Millionaire",Pos=Vector3.new(-1946,100,-8346)},
+    [625]={Name="Galley Captain",Mob="Galley Captain",Pos=Vector3.new(-1810,100,-8543)},
+    [700]={Name="Island Empress",Mob="Island Empress",Pos=Vector3.new(-13500,285,-9600)},
+    [850]={Name="Forest Pirate",Mob="Forest Pirate",Pos=Vector3.new(-13425,367,-9450)},
+    [900]={Name="Mythological Pirate",Mob="Mythological Pirate",Pos=Vector3.new(-13493,370,-9490)},
+    [1000]={Name="Jungle Pirate",Mob="Jungle Pirate",Pos=Vector3.new(-13300,370,-9400)},
+    [1050]={Name="Musketeer Pirate",Mob="Musketeer Pirate",Pos=Vector3.new(-13350,375,-9350)},
+    [1100]={Name="Reborn Skeleton",Mob="Reborn Skeleton",Pos=Vector3.new(-9510,141,5845)},
+    [1150]={Name="Living Zombie",Mob="Living Zombie",Pos=Vector3.new(-9530,141,5810)},
+    [1200]={Name="Demonic Soul",Mob="Demonic Soul",Pos=Vector3.new(-9520,141,5875)},
+    [1325]={Name="Posessed Mummy",Mob="Posessed Mummy",Pos=Vector3.new(-9550,141,5825)},
+    [1500]={Name="Drowned Cook",Mob="Drowned Cook",Pos=Vector3.new(-9500,141,5800)},
+    [1525]={Name="Pilot",Mob="Pilot",Pos=Vector3.new(-13442,285,-9400)},
+    [1575]={Name="Sea Soldier",Mob="Sea Soldier",Pos=Vector3.new(-13460,285,-9420)},
+    [1625]={Name="Water Fighter",Mob="Water Fighter",Pos=Vector3.new(-13480,285,-9440)},
+    [1700]={Name="Gargoyle",Mob="Gargoyle",Pos=Vector3.new(-13500,285,-9600)},
+    [1725]={Name="Dragon Talon Sage",Mob="Dragon Talon Sage",Pos=Vector3.new(-13520,285,-9620)},
+    [1775]={Name="Giant Islander",Mob="Giant Islander",Pos=Vector3.new(-13480,380,-9500)},
+    [1800]={Name="Dragon Talon",Mob="Dragon Talon",Pos=Vector3.new(-13540,285,-9640)},
+    [1875]={Name="Street Thug",Mob="Street Thug",Pos=Vector3.new(-13400,285,-9380)},
+    [2175]={Name="Cocoa Warrior",Mob="Cocoa Warrior",Pos=Vector3.new(-13425,367,-9450)},
+    [2200]={Name="Chocolate Bar Baker",Mob="Chocolate Bar Baker",Pos=Vector3.new(-13430,367,-9460)},
+    [2225]={Name="Sweet Pirate",Mob="Sweet Pirate",Pos=Vector3.new(-13435,367,-9470)},
+    [2250]={Name="Yeti",Mob="Yeti",Pos=Vector3.new(-13440,367,-9480)},
+    [2275]={Name="Peanut Scout",Mob="Peanut Scout",Pos=Vector3.new(-13445,367,-9490)},
+    [2300]={Name="Peanut President",Mob="Peanut President",Pos=Vector3.new(-13450,367,-9500)},
+    [2325]={Name="Big MOM",Mob="Big MOM",Pos=Vector3.new(-13455,367,-9510)},
+    [2350]={Name="Cake Queen",Mob="Cake Queen",Pos=Vector3.new(-13460,367,-9520)},
 }
 
 local function getBestQuest()
@@ -1174,15 +1201,11 @@ local function hasActiveQuest()
     return false
 end
 
--- ============================================================
--- CHEST DETECTION — FIXED: broad search
--- ============================================================
+-- Chest detection — comprehensive search
 local function findAllChests()
     local chests = {}
-    -- Search Workspace children
-    for _, obj in pairs(Workspace:GetChildren()) do
-        local name = obj.Name:lower()
-        if name:match("chest") then
+    local function checkObj(obj)
+        if obj.Name:lower():match("chest") then
             local part = obj:FindFirstChildWhichIsA("BasePart")
             if not part and obj:IsA("BasePart") then part = obj end
             if part then
@@ -1190,27 +1213,15 @@ local function findAllChests()
             end
         end
     end
-    -- Search inside common container names
-    for _, containerName in pairs({"Map", "Islands", "World"}) do
-        local container = Workspace:FindFirstChild(containerName)
-        if container then
-            for _, obj in pairs(container:GetChildren()) do
-                if obj.Name:lower():match("chest") then
-                    local part = obj:FindFirstChildWhichIsA("BasePart")
-                    if not part and obj:IsA("BasePart") then part = obj end
-                    if part then
-                        table.insert(chests, {Model = obj, Part = part, Pos = part.Position})
-                    end
-                end
-                -- Search one level deeper
-                for _, child in pairs(obj:GetChildren()) do
-                    if child.Name:lower():match("chest") then
-                        local part = child:FindFirstChildWhichIsA("BasePart")
-                        if not part and child:IsA("BasePart") then part = child end
-                        if part then
-                            table.insert(chests, {Model = child, Part = part, Pos = part.Position})
-                        end
-                    end
+    for _, obj in pairs(Workspace:GetChildren()) do checkObj(obj) end
+    local map = Workspace:FindFirstChild("Map")
+    if map then
+        for _, island in pairs(map:GetChildren()) do
+            checkObj(island)
+            for _, child in pairs(island:GetChildren()) do
+                checkObj(child)
+                for _, grandchild in pairs(child:GetChildren()) do
+                    checkObj(grandchild)
                 end
             end
         end
@@ -1218,9 +1229,20 @@ local function findAllChests()
     return chests
 end
 
--- ============================================================
--- SERVER HOP
--- ============================================================
+-- Find all fruits
+local function findAllFruits()
+    local fruits = {}
+    for _, obj in pairs(Workspace:GetChildren()) do
+        if obj:IsA("Model") and obj.Name:lower():match("fruit") then
+            local part = obj:FindFirstChildWhichIsA("BasePart")
+            if part then
+                table.insert(fruits, {Model = obj, Part = part, Pos = part.Position, Name = obj.Name})
+            end
+        end
+    end
+    return fruits
+end
+
 local function hopServer()
     notify("Server Hop", "Searching for a new server...", 3, "warning")
     local placeId = game.PlaceId
@@ -1246,63 +1268,127 @@ local function hopServer()
 end
 
 -- ============================================================
--- ESP SYSTEM
+-- ESP SYSTEM — COMPLETELY REWRITTEN
 -- ============================================================
-local ESPObjects = {
-    Fruit = {}, Chest = {}, Island = {}, Mob = {}, Player = {}
-}
+local function createESPManager(espType, color, getTextFunc)
+    local manager = {
+        Type = espType,
+        Color = color,
+        Enabled = false,
+        Tracked = {},
+        GetText = getTextFunc or function(obj) return espType end,
+    }
 
-local ESPColors = {
-    Fruit = Color3.fromRGB(255, 80, 80),
-    Chest = Color3.fromRGB(255, 200, 50),
-    Island = Color3.fromRGB(100, 200, 255),
-    Mob = Color3.fromRGB(255, 100, 200),
-    Player = Color3.fromRGB(100, 255, 100),
-}
-
-local function clearESP(type)
-    for _, obj in pairs(ESPObjects[type]) do
-        pcall(function() obj.Highlight:Destroy() end)
-        pcall(function() obj.Billboard:Destroy() end)
+    function manager:Disable()
+        self.Enabled = false
+        for obj, data in pairs(self.Tracked) do
+            pcall(function() if data.Highlight then data.Highlight:Destroy() end end)
+            pcall(function() if data.Billboard then data.Billboard:Destroy() end end)
+        end
+        self.Tracked = {}
     end
-    ESPObjects[type] = {}
+
+    function manager:Enable()
+        self.Enabled = true
+    end
+
+    function manager:Add(obj)
+        if not obj or not obj.Parent then return end
+        if self.Tracked[obj] then return end
+
+        local highlight = Instance.new("Highlight")
+        highlight.FillColor = self.Color
+        highlight.FillTransparency = 0.5
+        highlight.OutlineColor = Color3.fromRGB(255, 255, 255)
+        highlight.OutlineTransparency = 0
+        highlight.Adornee = obj
+        highlight.Name = "EbanatESP_" .. self.Type
+        highlight.Parent = obj
+
+        local billboard = Instance.new("BillboardGui")
+        billboard.Size = UDim2.new(0, 200, 0, 30)
+        billboard.AlwaysOnTop = true
+        billboard.MaxDistance = 5000
+        billboard.Adornee = obj
+        billboard.Name = "EbanatESPLabel_" .. self.Type
+        billboard.Parent = obj
+
+        local label = Instance.new("TextLabel")
+        label.Size = UDim2.new(1, 0, 1, 0)
+        label.BackgroundTransparency = 1
+        label.Text = self.GetText(obj)
+        label.TextColor3 = self.Color
+        label.Font = Enum.Font.GothamBold
+        label.TextSize = 14
+        label.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+        label.TextStrokeTransparency = 0.3
+        label.Parent = billboard
+
+        self.Tracked[obj] = {Highlight = highlight, Billboard = billboard, Label = label}
+    end
+
+    function manager:Remove(obj)
+        local data = self.Tracked[obj]
+        if data then
+            pcall(function() data.Highlight:Destroy() end)
+            pcall(function() data.Billboard:Destroy() end)
+            self.Tracked[obj] = nil
+        end
+    end
+
+    function manager:Update(getTargetsFunc)
+        if not self.Enabled then return end
+
+        -- Remove dead objects
+        for obj, _ in pairs(self.Tracked) do
+            if not obj.Parent then
+                self:Remove(obj)
+            end
+        end
+
+        -- Add new objects
+        local targets = getTargetsFunc()
+        local targetSet = {}
+        for _, target in pairs(targets) do
+            targetSet[target] = true
+            self:Add(target)
+        end
+
+        -- Remove objects no longer in targets
+        for obj, _ in pairs(self.Tracked) do
+            if not targetSet[obj] then
+                self:Remove(obj)
+            end
+        end
+
+        -- Update labels
+        for obj, data in pairs(self.Tracked) do
+            if obj.Parent and data.Label then
+                pcall(function() data.Label.Text = self.GetText(obj) end)
+            end
+        end
+    end
+
+    return manager
 end
 
-local function clearAllESP()
-    for type, _ in pairs(ESPObjects) do clearESP(type) end
-end
+local FruitESP = createESPManager("Fruit", Color3.fromRGB(255, 80, 80), function(obj)
+    return "Fruit: " .. obj.Name
+end)
+local ChestESP = createESPManager("Chest", Color3.fromRGB(255, 200, 50), function(obj)
+    return "Chest"
+end)
+local MobESP = createESPManager("Mob", Color3.fromRGB(255, 100, 200), function(obj)
+    local hp = obj:FindFirstChild("Humanoid")
+    return obj.Name .. " [" .. (hp and math.floor(hp.Health) or "?") .. " HP]"
+end)
+local PlayerESP = createESPManager("Player", Color3.fromRGB(100, 255, 100), function(obj)
+    local plr = Players:GetPlayerFromCharacter(obj)
+    return plr and plr.Name or "Player"
+end)
 
-local function addESP(target, espType, text)
-    if not target then return end
-    local highlight = Instance.new("Highlight")
-    highlight.FillColor = ESPColors[espType]
-    highlight.FillTransparency = 0.5
-    highlight.OutlineColor = Color3.fromRGB(255, 255, 255)
-    highlight.OutlineTransparency = 0
-    highlight.Parent = target
-
-    local billboard = Instance.new("BillboardGui")
-    billboard.Size = UDim2.new(0, 200, 0, 30)
-    billboard.AlwaysOnTop = true
-    billboard.MaxDistance = 5000
-    billboard.Parent = target
-
-    local label = Instance.new("TextLabel")
-    label.Size = UDim2.new(1, 0, 1, 0)
-    label.BackgroundTransparency = 1
-    label.Text = text
-    label.TextColor3 = ESPColors[espType]
-    label.Font = Enum.Font.GothamBold
-    label.TextSize = 14
-    label.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
-    label.TextStrokeTransparency = 0.3
-    label.Parent = billboard
-
-    table.insert(ESPObjects[espType], {Highlight = highlight, Billboard = billboard, Target = target})
-end
-
--- Island ESP: create invisible parts at island positions
-local IslandParts = {}
+-- Island ESP
+local IslandBillboards = {}
 local function setupIslandESP()
     local islands = {
         {"Windmill Village", Vector3.new(1059, 16, 1548)},
@@ -1335,7 +1421,7 @@ local function setupIslandESP()
         part.Transparency = 1
         part.CanCollide = false
         part.Anchored = true
-        part.Parent = nil -- hidden by default
+        part.Parent = nil
 
         local billboard = Instance.new("BillboardGui")
         billboard.Size = UDim2.new(0, 200, 0, 30)
@@ -1347,14 +1433,14 @@ local function setupIslandESP()
         label.Size = UDim2.new(1, 0, 1, 0)
         label.BackgroundTransparency = 1
         label.Text = island[1]
-        label.TextColor3 = ESPColors.Island
+        label.TextColor3 = Color3.fromRGB(100, 200, 255)
         label.Font = Enum.Font.GothamBold
         label.TextSize = 14
         label.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
         label.TextStrokeTransparency = 0.3
         label.Parent = billboard
 
-        table.insert(IslandParts, {Part = part, Name = island[1]})
+        table.insert(IslandBillboards, part)
     end
 end
 setupIslandESP()
@@ -1362,64 +1448,68 @@ setupIslandESP()
 -- ESP update loop
 task.spawn(function()
     while true do
-        task.wait(2)
+        task.wait(0.5)
         pcall(function()
             -- Fruit ESP
-            if Config.FruitESP then
-                clearESP("Fruit")
-                for _, obj in pairs(Workspace:GetChildren()) do
-                    if obj:IsA("Model") and obj.Name:lower():match("fruit") then
-                        addESP(obj, "Fruit", "Devil Fruit: " .. obj.Name)
+            if FruitESP.Enabled then
+                FruitESP:Update(function()
+                    local targets = {}
+                    for _, obj in pairs(Workspace:GetChildren()) do
+                        if obj:IsA("Model") and obj.Name:lower():match("fruit") then
+                            table.insert(targets, obj)
+                        end
                     end
-                end
-            else
-                clearESP("Fruit")
+                    return targets
+                end)
             end
 
             -- Chest ESP
-            if Config.ChestESP then
-                clearESP("Chest")
-                local chests = findAllChests()
-                for _, chest in pairs(chests) do
-                    addESP(chest.Model, "Chest", "Chest")
-                end
-            else
-                clearESP("Chest")
+            if ChestESP.Enabled then
+                ChestESP:Update(function()
+                    local targets = {}
+                    local chests = findAllChests()
+                    for _, chest in pairs(chests) do
+                        table.insert(targets, chest.Model)
+                    end
+                    return targets
+                end)
             end
 
             -- Mob ESP
-            if Config.MobESP then
-                clearESP("Mob")
-                local enemies = Workspace:FindFirstChild("Enemies")
-                if enemies then
-                    for _, mob in pairs(enemies:GetChildren()) do
-                        if mob:FindFirstChild("Humanoid") and mob.Humanoid.Health > 0 then
-                            addESP(mob, "Mob", mob.Name .. " [" .. math.floor(mob.Humanoid.Health) .. " HP]")
+            if MobESP.Enabled then
+                MobESP:Update(function()
+                    local targets = {}
+                    local enemies = Workspace:FindFirstChild("Enemies")
+                    if enemies then
+                        for _, mob in pairs(enemies:GetChildren()) do
+                            if mob:FindFirstChild("Humanoid") and mob.Humanoid.Health > 0 then
+                                table.insert(targets, mob)
+                            end
                         end
                     end
-                end
-            else
-                clearESP("Mob")
+                    return targets
+                end)
             end
 
             -- Player ESP
-            if Config.PlayerESP then
-                clearESP("Player")
-                for _, plr in pairs(Players:GetPlayers()) do
-                    if plr ~= LocalPlayer and plr.Character then
-                        addESP(plr.Character, "Player", plr.Name)
+            if PlayerESP.Enabled then
+                PlayerESP:Update(function()
+                    local targets = {}
+                    for _, plr in pairs(Players:GetPlayers()) do
+                        if plr ~= LocalPlayer and plr.Character then
+                            table.insert(targets, plr.Character)
+                        end
                     end
-                end
-            else
-                clearESP("Player")
+                    return targets
+                end)
             end
 
             -- Island ESP
-            for _, islandData in pairs(IslandParts) do
+            for _, part in pairs(IslandBillboards) do
                 if Config.IslandESP then
-                    islandData.Part.Parent = Workspace
+                    part.Parent = Workspace
                 else
-                    islandData.Part.Parent = nil
+                    part.Parent = nil
                 end
             end
         end)
@@ -1504,28 +1594,23 @@ end)
 
 HomeTab:Section("Quick Actions")
 HomeTab:Button("Stop All Actions", function()
-    Config.AutoFarm = false
-    Config.AutoQuest = false
-    Config.AutoChests = false
-    Config.AutoFruits = false
-    Config.AutoStats = false
-    Config.AutoHop = false
-    Config.KillAura = false
+    Config.AutoFarm = false; Config.AutoQuest = false; Config.AutoChests = false
+    Config.AutoFruits = false; Config.AutoStats = false; Config.AutoHop = false; Config.KillAura = false
     stopMovement()
     notify("Stopped", "All actions cancelled", 2, "warning")
 end)
 HomeTab:Button("Rejoin Server", function() TeleportService:Teleport(game.PlaceId, LocalPlayer) end)
-HomeTab:Button("Copy Server ID", function() setclipboard(game.JobId); notify("Copied", "Server ID copied to clipboard", 2, "success") end)
+HomeTab:Button("Copy Server ID", function() setclipboard(game.JobId); notify("Copied", "Server ID copied", 2, "success") end)
 HomeTab:Button("Server Hop", function() hopServer() end)
 HomeTab:Section("About")
-HomeTab:Label("Ebanat Hub v3.0.0")
+HomeTab:Label("Ebanat Hub v4.0.0")
 HomeTab:Label("Built by ENI")
 HomeTab:Label("Press RightShift to toggle UI")
 
--- AUTO FARM — with cancellable actions
+-- AUTO FARM
 local FarmTab = createTab("Farm", "S")
 FarmTab:Section("Combat")
-FarmTab:Toggle("Auto Farm", "Automatically farms nearest mobs for XP", false, function(state)
+FarmTab:Toggle("Auto Farm", "Farms nearest mobs for XP", false, function(state)
     Config.AutoFarm = state
     if not state then stopMovement() end
     notify("Auto Farm", state and "Enabled" or "Disabled", 2, state and "success" or "warning")
@@ -1534,26 +1619,16 @@ FarmTab:Toggle("Auto Quest", "Auto accepts best quest (instant teleport)", false
     Config.AutoQuest = state
     if not state then stopMovement() end
 end)
-FarmTab:Toggle("Fast Attack", "Uses fast attack method", true, function(state)
-    Config.FastAttack = state
-end)
-FarmTab:Toggle("Super Effective", "Uses all skills (Z,X,C,V,F)", false, function(state)
-    Config.SuperEffective = state
-end)
-FarmTab:Toggle("Bring Mobs", "Teleports mobs to you", true, function(state)
-    Config.BringMobs = state
-end)
-FarmTab:Dropdown("Attack Method", {"M1", "Skill", "Both"}, "Both", function(opt)
-    Config.AttackMethod = opt
-end)
+FarmTab:Toggle("Fast Attack", "Uses fast attack method", true, function(state) Config.FastAttack = state end)
+FarmTab:Toggle("Super Effective", "Uses all skills (Z,X,C,V,F)", false, function(state) Config.SuperEffective = state end)
+FarmTab:Toggle("Bring Mobs", "Teleports mobs to you", true, function(state) Config.BringMobs = state end)
+FarmTab:Dropdown("Attack Method", {"M1", "Skill", "Both"}, "Both", function(opt) Config.AttackMethod = opt end)
 FarmTab:Section("Combat Utilities")
 FarmTab:Toggle("Kill Aura", "Attacks all nearby mobs", false, function(state)
     Config.KillAura = state
     notify("Kill Aura", state and "Enabled" or "Disabled", 2, state and "success" or "warning")
 end)
-FarmTab:Slider("Aura Range", 10, 200, 50, " studs", function(val)
-    Config.AuraRange = val
-end)
+FarmTab:Slider("Aura Range", 10, 200, 50, " studs", function(val) Config.AuraRange = val end)
 FarmTab:Section("Manual Actions")
 FarmTab:Button("Farm Nearest Mob", function()
     local mob = getClosestMob()
@@ -1571,31 +1646,24 @@ FarmTab:Button("Take Best Quest", function()
     end
 end)
 
--- CRITICAL FIX: Auto farm loop uses teleportTo (instant) instead of tweenTo (blocking)
--- This means toggling off immediately stops all movement
+-- Auto farm loop
 task.spawn(function()
     while true do
         task.wait(0.1)
         if Config.AutoFarm then
             pcall(function()
-                if not RootPart then refreshCharacter() return end
+                if not RootPart or not RootPart.Parent then refreshCharacter(); return end
                 local quest = getBestQuest()
                 if not quest then return end
-
-                -- Auto quest: instant teleport, cancellable
                 if Config.AutoQuest and not hasActiveQuest() then
                     teleportTo(quest.Pos)
                     task.wait(0.3)
                     if not Config.AutoFarm then return end
                     local comm = getCommF()
-                    if comm then
-                        pcall(function() comm:InvokeServer("StartQuest", quest.Name, 1) end)
-                    end
+                    if comm then pcall(function() comm:InvokeServer("StartQuest", quest.Name, 1) end) end
                     task.wait(0.5)
                     return
                 end
-
-                -- Find and attack mob
                 local mob = getClosestMob(quest.Mob) or getClosestMob(nil)
                 if mob then
                     if Config.BringMobs then bringMob(mob) end
@@ -1632,7 +1700,7 @@ task.spawn(function()
     end
 end)
 
--- CHESTS — FIXED: better detection + instant teleport
+-- CHESTS — with delay slider
 local ChestTab = createTab("Chests", "$")
 ChestTab:Section("Auto Chest Farm")
 ChestTab:Toggle("Auto Collect Chests", "Teleports to and collects all chests", false, function(state)
@@ -1640,32 +1708,29 @@ ChestTab:Toggle("Auto Collect Chests", "Teleports to and collects all chests", f
     if not state then stopMovement() end
     notify("Chest Farm", state and "Enabled" or "Disabled", 2, state and "success" or "warning")
 end)
+ChestTab:Slider("Collection Delay", 0, 5, 0.5, "s", function(val) Config.ChestDelay = val end)
 ChestTab:Button("Collect All Chests Now", function()
     notify("Chests", "Searching for chests...", 2)
     task.spawn(function()
         if not RootPart then return end
         local chests = findAllChests()
-        if #chests == 0 then
-            notify("Chests", "No chests found in this server", 3, "warning")
-            return
-        end
+        if #chests == 0 then notify("Chests", "No chests found", 3, "warning"); return end
         notify("Chests", "Found " .. #chests .. " chests, collecting...", 2, "success")
-        for i, chest in pairs(chests) do
+        for _, chest in pairs(chests) do
             if RootPart and chest.Part and chest.Part.Parent then
                 teleportTo(chest.Pos + Vector3.new(0, 5, 0))
-                task.wait(0.2)
+                task.wait(Config.ChestDelay)
                 pcall(function()
                     firetouchinterest(RootPart, chest.Part, 0)
                     firetouchinterest(RootPart, chest.Part, 1)
                 end)
-                task.wait(0.1)
             end
         end
         notify("Chests", "Collection complete!", 2, "success")
     end)
 end)
 
--- Chest loop — uses teleportTo (instant, cancellable)
+-- Chest loop with delay
 task.spawn(function()
     while true do
         task.wait(0.5)
@@ -1676,13 +1741,12 @@ task.spawn(function()
                     if not Config.AutoChests then break end
                     if chest.Part and chest.Part.Parent then
                         teleportTo(chest.Pos + Vector3.new(0, 5, 0))
-                        task.wait(0.2)
+                        task.wait(Config.ChestDelay)
                         if not Config.AutoChests then break end
                         pcall(function()
                             firetouchinterest(RootPart, chest.Part, 0)
                             firetouchinterest(RootPart, chest.Part, 1)
                         end)
-                        task.wait(0.1)
                     end
                 end
             end)
@@ -1690,7 +1754,7 @@ task.spawn(function()
     end
 end)
 
--- FRUITS
+-- FRUITS — with Teleport to Fruits + Fruit ESP
 local FruitsTab = createTab("Fruits", "F")
 FruitsTab:Section("Fruit Collection")
 FruitsTab:Toggle("Auto Farm Fruits", "Collects spawned devil fruits", false, function(state)
@@ -1700,6 +1764,30 @@ FruitsTab:Toggle("Auto Farm Fruits", "Collects spawned devil fruits", false, fun
 end)
 FruitsTab:Toggle("Auto Store Fruits", "Stores collected fruits in inventory", false, function(state)
     Config.AutoStoreFruits = state
+end)
+FruitsTab:Button("Teleport to Fruits", function()
+    if not RootPart then return end
+    local fruits = findAllFruits()
+    if #fruits == 0 then
+        notify("Teleport", "No fruits found in this server", 3, "warning")
+        return
+    end
+    -- Find nearest fruit
+    local nearest, nearestDist = nil, math.huge
+    for _, fruit in pairs(fruits) do
+        local dist = (RootPart.Position - fruit.Pos).Magnitude
+        if dist < nearestDist then nearest = fruit; nearestDist = dist end
+    end
+    if nearest then
+        teleportTo(nearest.Pos + Vector3.new(0, 10, 0))
+        notify("Teleport", "Teleported to " .. nearest.Name, 2, "success")
+    end
+end)
+FruitsTab:Section("Fruit ESP")
+FruitsTab:Toggle("Fruit ESP", "Highlights all devil fruits on the map", false, function(state)
+    Config.FruitESP = state
+    if state then FruitESP:Enable() else FruitESP:Disable() end
+    notify("ESP", "Fruit ESP " .. (state and "Enabled" or "Disabled"), 2, state and "success" or "warning")
 end)
 FruitsTab:Section("Fruit Shop")
 FruitsTab:Toggle("Auto Buy Fruit", "Auto buys selected fruit from shop", false, function(state)
@@ -1719,28 +1807,26 @@ FruitsTab:Button("Store Current Fruit", function()
     if comm then pcall(function() comm:InvokeServer("StoreFruit") end); notify("Storage", "Fruit stored", 2, "success") end
 end)
 
--- Fruit loop — uses teleportTo
+-- Fruit loop
 task.spawn(function()
     while true do
         task.wait(0.5)
         if Config.AutoFruits and RootPart then
             pcall(function()
-                for _, obj in pairs(Workspace:GetChildren()) do
+                local fruits = findAllFruits()
+                for _, fruit in pairs(fruits) do
                     if not Config.AutoFruits then break end
-                    if obj:IsA("Model") and obj.Name:lower():match("fruit") then
-                        local part = obj:FindFirstChildWhichIsA("BasePart")
-                        if part then
-                            teleportTo(part.Position + Vector3.new(0, 5, 0))
-                            task.wait(0.2)
-                            if not Config.AutoFruits then break end
-                            pcall(function()
-                                firetouchinterest(RootPart, part, 0)
-                                firetouchinterest(RootPart, part, 1)
-                            end)
-                            if Config.AutoStoreFruits then
-                                local comm = getCommF()
-                                if comm then pcall(function() comm:InvokeServer("StoreFruit") end) end
-                            end
+                    if fruit.Part and fruit.Part.Parent then
+                        teleportTo(fruit.Pos + Vector3.new(0, 5, 0))
+                        task.wait(0.2)
+                        if not Config.AutoFruits then break end
+                        pcall(function()
+                            firetouchinterest(RootPart, fruit.Part, 0)
+                            firetouchinterest(RootPart, fruit.Part, 1)
+                        end)
+                        if Config.AutoStoreFruits then
+                            local comm = getCommF()
+                            if comm then pcall(function() comm:InvokeServer("StoreFruit") end) end
                         end
                     end
                 end
@@ -1810,17 +1896,17 @@ task.spawn(function()
     end
 end)
 
--- ESP TAB — NEW
+-- ESP TAB
 local ESPTab = createTab("ESP", "E")
 ESPTab:Section("Visual ESP")
 ESPTab:Toggle("Fruit ESP", "Highlights all devil fruits", false, function(state)
     Config.FruitESP = state
-    if not state then clearESP("Fruit") end
+    if state then FruitESP:Enable() else FruitESP:Disable() end
     notify("ESP", "Fruit ESP " .. (state and "Enabled" or "Disabled"), 2, state and "success" or "warning")
 end)
 ESPTab:Toggle("Chest ESP", "Highlights all chests", false, function(state)
     Config.ChestESP = state
-    if not state then clearESP("Chest") end
+    if state then ChestESP:Enable() else ChestESP:Disable() end
     notify("ESP", "Chest ESP " .. (state and "Enabled" or "Disabled"), 2, state and "success" or "warning")
 end)
 ESPTab:Toggle("Island ESP", "Shows island names in world", false, function(state)
@@ -1829,17 +1915,17 @@ ESPTab:Toggle("Island ESP", "Shows island names in world", false, function(state
 end)
 ESPTab:Toggle("Mob ESP", "Highlights all mobs with HP", false, function(state)
     Config.MobESP = state
-    if not state then clearESP("Mob") end
+    if state then MobESP:Enable() else MobESP:Disable() end
     notify("ESP", "Mob ESP " .. (state and "Enabled" or "Disabled"), 2, state and "success" or "warning")
 end)
 ESPTab:Toggle("Player ESP", "Highlights all players", false, function(state)
     Config.PlayerESP = state
-    if not state then clearESP("Player") end
+    if state then PlayerESP:Enable() else PlayerESP:Disable() end
     notify("ESP", "Player ESP " .. (state and "Enabled" or "Disabled"), 2, state and "success" or "warning")
 end)
 ESPTab:Section("ESP Actions")
 ESPTab:Button("Clear All ESP", function()
-    clearAllESP()
+    FruitESP:Disable(); ChestESP:Disable(); MobESP:Disable(); PlayerESP:Disable()
     Config.FruitESP = false; Config.ChestESP = false; Config.IslandESP = false
     Config.MobESP = false; Config.PlayerESP = false
     notify("ESP", "All ESP cleared", 2, "warning")
@@ -1920,7 +2006,7 @@ SettingsTab:Button("Reset Window Position", function()
     notify("Settings", "Position reset", 2)
 end)
 SettingsTab:Button("Destroy UI", function()
-    clearAllESP()
+    FruitESP:Disable(); ChestESP:Disable(); MobESP:Disable(); PlayerESP:Disable()
     ScreenGui:Destroy()
 end)
 SettingsTab:Section("Keybinds")
@@ -1946,4 +2032,4 @@ end)
 task.wait(0.3)
 notify("Ebanat Hub", "Welcome, " .. LocalPlayer.Name .. "!", 4, "success")
 task.wait(1)
-notify("Loaded", "v3.0 - All systems operational", 3, "success")
+notify("Loaded", "v4.0 - All systems operational", 3, "success")
