@@ -1,25 +1,16 @@
 --[[
     EBANAT HUB | BLOX FRUITS
-    Version: 1.0.1 — Delta Compatible
-    Fixed: gethui() support, removed continue statements,
-    fixed TextXAlignment bug, safer instance creation,
-    wrapped executor functions, compact execution
+    Version: 2.0.0 — Delta Compatible
+    Fixed: Remote paths, Third Sea quests, attack system, mob bringing
 ]]
 
 -- ============================================================
 -- EXECUTOR DETECTION
 -- ============================================================
-local gethui = gethui or function()
-    return game:GetService("CoreGui")
-end
-
+local gethui = gethui or function() return game:GetService("CoreGui") end
 local setclipboard = setclipboard or function() end
 local sethiddenproperty = sethiddenproperty or function() end
 local firetouchinterest = firetouchinterest or function() end
-
-local function safeHttpGet(url)
-    return game:HttpGet(url)
-end
 
 -- ============================================================
 -- SERVICES
@@ -32,6 +23,7 @@ local RunService = game:GetService("RunService")
 local HttpService = game:GetService("HttpService")
 local TeleportService = game:GetService("TeleportService")
 local VirtualUser = game:GetService("VirtualUser")
+local VirtualInputManager = game:GetService("VirtualInputManager")
 local Workspace = game:GetService("Workspace")
 
 local LocalPlayer = Players.LocalPlayer
@@ -71,21 +63,8 @@ local ThemePresets = {
 }
 
 -- ============================================================
--- SAFE INSTANCE CREATION
+-- UTILITY
 -- ============================================================
-local function make(class, props)
-    local obj = Instance.new(class)
-    for k, v in pairs(props or {}) do
-        if k ~= "Parent" then
-            obj[k] = v
-        end
-    end
-    if props and props.Parent then
-        obj.Parent = props.Parent
-    end
-    return obj
-end
-
 local function corner(parent, radius)
     local c = Instance.new("UICorner")
     c.CornerRadius = UDim.new(0, radius or 8)
@@ -135,9 +114,7 @@ local function ripple(parent, x, y)
         BackgroundTransparency = 1,
     })
     tw:Play()
-    tw.Completed:Connect(function()
-        r:Destroy()
-    end)
+    tw.Completed:Connect(function() r:Destroy() end)
 end
 
 -- ============================================================
@@ -158,7 +135,6 @@ UIScale.Parent = ScreenGui
 -- MAIN WINDOW
 -- ============================================================
 local Window = Instance.new("Frame")
-Window.Name = "Window"
 Window.Size = UDim2.new(0, 640, 0, 420)
 Window.Position = UDim2.new(0.5, -320, 0.5, -210)
 Window.BackgroundColor3 = Theme.Background
@@ -168,7 +144,6 @@ corner(Window, 12)
 gradient(Window, Theme.Background, Color3.fromRGB(12, 12, 16), 180)
 stroke(Window, Theme.AccentDark, 1, 0.3)
 
--- Shadow
 local Shadow = Instance.new("ImageLabel")
 Shadow.Size = UDim2.new(1, 40, 1, 40)
 Shadow.Position = UDim2.new(0, -20, 0, -20)
@@ -185,7 +160,6 @@ Shadow.Parent = Window
 -- TITLE BAR
 -- ============================================================
 local TitleBar = Instance.new("Frame")
-TitleBar.Name = "TitleBar"
 TitleBar.Size = UDim2.new(1, 0, 0, 44)
 TitleBar.BackgroundColor3 = Theme.BackgroundLight
 TitleBar.BorderSizePixel = 0
@@ -199,7 +173,6 @@ TitleFix.BackgroundColor3 = Theme.BackgroundLight
 TitleFix.BorderSizePixel = 0
 TitleFix.Parent = TitleBar
 
--- Logo
 local Logo = Instance.new("Frame")
 Logo.Size = UDim2.new(0, 30, 0, 30)
 Logo.Position = UDim2.new(0, 12, 0.5, -15)
@@ -218,7 +191,6 @@ LogoText.Font = Enum.Font.GothamBlack
 LogoText.TextSize = 18
 LogoText.Parent = Logo
 
--- Title
 local TitleLabel = Instance.new("TextLabel")
 TitleLabel.Size = UDim2.new(0, 200, 1, 0)
 TitleLabel.Position = UDim2.new(0, 50, 0, 0)
@@ -241,15 +213,13 @@ SubtitleLabel.TextSize = 11
 SubtitleLabel.TextXAlignment = Enum.TextXAlignment.Left
 SubtitleLabel.TextYAlignment = Enum.TextYAlignment.Bottom
 SubtitleLabel.Parent = TitleBar
-pad(SubtitleLabel, 0, 3, 0, 0)
 
--- Version badge
 local VersionBadge = Instance.new("TextLabel")
-VersionBadge.Size = UDim2.new(0, 50, 0, 22)
-VersionBadge.Position = UDim2.new(0, 162, 0.5, -11)
+VersionBadge.Size = UDim2.new(0, 56, 0, 22)
+VersionBadge.Position = UDim2.new(0, 168, 0.5, -11)
 VersionBadge.BackgroundColor3 = Theme.Card
 VersionBadge.BorderSizePixel = 0
-VersionBadge.Text = "v1.0"
+VersionBadge.Text = "v2.0"
 VersionBadge.TextColor3 = Theme.AccentLight
 VersionBadge.Font = Enum.Font.GothamMedium
 VersionBadge.TextSize = 10
@@ -257,13 +227,12 @@ VersionBadge.Parent = TitleBar
 corner(VersionBadge, 5)
 stroke(VersionBadge, Theme.AccentDark, 1, 0.3)
 
--- Window controls
 local MinimizeBtn = Instance.new("TextButton")
 MinimizeBtn.Size = UDim2.new(0, 28, 0, 28)
 MinimizeBtn.Position = UDim2.new(1, -72, 0.5, -14)
 MinimizeBtn.BackgroundColor3 = Theme.Card
 MinimizeBtn.BorderSizePixel = 0
-MinimizeBtn.Text = "—"
+MinimizeBtn.Text = "-"
 MinimizeBtn.TextColor3 = Theme.TextDim
 MinimizeBtn.Font = Enum.Font.GothamBold
 MinimizeBtn.TextSize = 14
@@ -284,76 +253,51 @@ CloseBtn.AutoButtonColor = false
 CloseBtn.Parent = TitleBar
 corner(CloseBtn, 6)
 
-MinimizeBtn.MouseEnter:Connect(function()
-    TweenService:Create(MinimizeBtn, TweenInfo.new(0.15), {BackgroundColor3 = Theme.CardHover, TextColor3 = Theme.Text}):Play()
-end)
-MinimizeBtn.MouseLeave:Connect(function()
-    TweenService:Create(MinimizeBtn, TweenInfo.new(0.15), {BackgroundColor3 = Theme.Card, TextColor3 = Theme.TextDim}):Play()
-end)
-CloseBtn.MouseEnter:Connect(function()
-    TweenService:Create(CloseBtn, TweenInfo.new(0.15), {BackgroundColor3 = Theme.Danger, TextColor3 = Color3.fromRGB(255, 255, 255)}):Play()
-end)
-CloseBtn.MouseLeave:Connect(function()
-    TweenService:Create(CloseBtn, TweenInfo.new(0.15), {BackgroundColor3 = Theme.Card, TextColor3 = Theme.TextDim}):Play()
-end)
+MinimizeBtn.MouseEnter:Connect(function() TweenService:Create(MinimizeBtn, TweenInfo.new(0.15), {BackgroundColor3 = Theme.CardHover, TextColor3 = Theme.Text}):Play() end)
+MinimizeBtn.MouseLeave:Connect(function() TweenService:Create(MinimizeBtn, TweenInfo.new(0.15), {BackgroundColor3 = Theme.Card, TextColor3 = Theme.TextDim}):Play() end)
+CloseBtn.MouseEnter:Connect(function() TweenService:Create(CloseBtn, TweenInfo.new(0.15), {BackgroundColor3 = Theme.Danger, TextColor3 = Color3.fromRGB(255, 255, 255)}):Play() end)
+CloseBtn.MouseLeave:Connect(function() TweenService:Create(CloseBtn, TweenInfo.new(0.15), {BackgroundColor3 = Theme.Card, TextColor3 = Theme.TextDim}):Play() end)
 
 local minimized = false
 MinimizeBtn.MouseButton1Click:Connect(function()
     ripple(MinimizeBtn, 14, 14)
     minimized = not minimized
     if minimized then
-        TweenService:Create(Window, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
-            Size = UDim2.new(0, 640, 0, 44),
-        }):Play()
+        TweenService:Create(Window, TweenInfo.new(0.3), {Size = UDim2.new(0, 640, 0, 44)}):Play()
     else
-        TweenService:Create(Window, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
-            Size = UDim2.new(0, 640, 0, 420),
-        }):Play()
+        TweenService:Create(Window, TweenInfo.new(0.3), {Size = UDim2.new(0, 640, 0, 420)}):Play()
     end
 end)
 
 CloseBtn.MouseButton1Click:Connect(function()
     ripple(CloseBtn, 14, 14)
-    local closeTween = TweenService:Create(Window, TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
-        Size = UDim2.new(0, 0, 0, 0),
-        Position = UDim2.new(0.5, 0, 0.5, 0),
-        BackgroundTransparency = 1,
+    local tw = TweenService:Create(Window, TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
+        Size = UDim2.new(0, 0, 0, 0), Position = UDim2.new(0.5, 0, 0.5, 0), BackgroundTransparency = 1,
     })
-    closeTween:Play()
-    closeTween.Completed:Connect(function()
-        ScreenGui:Destroy()
-    end)
+    tw:Play()
+    tw.Completed:Connect(function() ScreenGui:Destroy() end)
 end)
 
 -- ============================================================
--- DRAG LOGIC
+-- DRAG
 -- ============================================================
-local dragging = false
-local dragInput = nil
-local dragStart = nil
-local startPos = nil
-
+local dragging, dragInput, dragStart, startPos = false, nil, nil, nil
 TitleBar.InputBegan:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-        dragging = true
-        dragStart = input.Position
-        startPos = Window.Position
+        dragging = true; dragStart = input.Position; startPos = Window.Position
     end
 end)
-
 TitleBar.InputChanged:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
         dragInput = input
     end
 end)
-
 UserInputService.InputChanged:Connect(function(input)
     if input == dragInput and dragging then
         local delta = input.Position - dragStart
         Window.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
     end
 end)
-
 UserInputService.InputEnded:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
         dragging = false
@@ -361,10 +305,9 @@ UserInputService.InputEnded:Connect(function(input)
 end)
 
 -- ============================================================
--- TAB BAR
+-- TAB BAR + CONTENT
 -- ============================================================
 local TabBar = Instance.new("Frame")
-TabBar.Name = "TabBar"
 TabBar.Size = UDim2.new(1, -24, 0, 36)
 TabBar.Position = UDim2.new(0, 12, 0, 50)
 TabBar.BackgroundColor3 = Theme.BackgroundLight
@@ -384,11 +327,7 @@ TabList.Padding = UDim.new(0, 4)
 TabList.SortOrder = Enum.SortOrder.LayoutOrder
 TabList.Parent = TabContainer
 
--- ============================================================
--- CONTENT AREA
--- ============================================================
 local ContentArea = Instance.new("Frame")
-ContentArea.Name = "ContentArea"
 ContentArea.Size = UDim2.new(1, -24, 1, -98)
 ContentArea.Position = UDim2.new(0, 12, 0, 92)
 ContentArea.BackgroundTransparency = 1
@@ -400,7 +339,6 @@ local currentTab = nil
 local tabIndex = 0
 
 local TabIndicator = Instance.new("Frame")
-TabIndicator.Name = "Indicator"
 TabIndicator.Size = UDim2.new(0, 0, 0, 2)
 TabIndicator.Position = UDim2.new(0, 0, 1, -2)
 TabIndicator.BackgroundColor3 = Theme.Accent
@@ -410,7 +348,7 @@ TabIndicator.Parent = TabBar
 corner(TabIndicator, 1)
 
 -- ============================================================
--- TAB + PAGE CREATION
+-- TAB CREATION
 -- ============================================================
 local function createTab(name, icon)
     tabIndex = tabIndex + 1
@@ -447,7 +385,6 @@ local function createTab(name, icon)
     tabLabel.Parent = tabBtn
 
     local page = Instance.new("ScrollingFrame")
-    page.Name = name .. "Page"
     page.Size = UDim2.new(1, 0, 1, 0)
     page.BackgroundTransparency = 1
     page.BorderSizePixel = 0
@@ -479,17 +416,14 @@ local function createTab(name, icon)
                 TweenService:Create(tabData.Icon, TweenInfo.new(0.2), {TextColor3 = Theme.TextDim}):Play()
             end
         end
-
         for pageName, pageFrame in pairs(Pages) do
             pageFrame.Visible = (pageName == name)
         end
-
         TabIndicator.Visible = true
         TweenService:Create(TabIndicator, TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
             Size = UDim2.new(0, tabBtn.AbsoluteSize.X - 8, 0, 2),
             Position = UDim2.new(0, tabBtn.AbsolutePosition.X - TabBar.AbsolutePosition.X + 4, 1, -2),
         }):Play()
-
         currentTab = name
     end
 
@@ -497,7 +431,6 @@ local function createTab(name, icon)
         ripple(tabBtn, tabBtn.AbsoluteSize.X / 2, tabBtn.AbsoluteSize.Y / 2)
         selectTab()
     end)
-
     tabBtn.MouseEnter:Connect(function()
         if currentTab ~= name then
             TweenService:Create(tabBtn, TweenInfo.new(0.15), {BackgroundColor3 = Theme.Card}):Play()
@@ -511,7 +444,6 @@ local function createTab(name, icon)
         end
     end)
 
-    -- PAGE ELEMENT API
     local api = {}
     local order = 0
 
@@ -522,7 +454,6 @@ local function createTab(name, icon)
         section.LayoutOrder = order
         section.Parent = page
         order = order + 1
-
         local label = Instance.new("TextLabel")
         label.Size = UDim2.new(1, 0, 1, 0)
         label.BackgroundTransparency = 1
@@ -555,7 +486,6 @@ local function createTab(name, icon)
         label.Font = Enum.Font.GothamMedium
         label.TextSize = 13
         label.TextXAlignment = Enum.TextXAlignment.Left
-        label.TextYAlignment = Enum.TextYAlignment.Center
         label.Parent = toggleCard
 
         local switchBg = Instance.new("Frame")
@@ -575,22 +505,13 @@ local function createTab(name, icon)
         corner(knob, 8)
 
         local state = default or false
-
         local function update()
             if state then
-                TweenService:Create(switchBg, TweenInfo.new(0.2, Enum.EasingStyle.Quad), {
-                    BackgroundColor3 = Theme.Accent,
-                }):Play()
-                TweenService:Create(knob, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
-                    Position = UDim2.new(1, -19, 0.5, -8),
-                }):Play()
+                TweenService:Create(switchBg, TweenInfo.new(0.2), {BackgroundColor3 = Theme.Accent}):Play()
+                TweenService:Create(knob, TweenInfo.new(0.2), {Position = UDim2.new(1, -19, 0.5, -8)}):Play()
             else
-                TweenService:Create(switchBg, TweenInfo.new(0.2, Enum.EasingStyle.Quad), {
-                    BackgroundColor3 = Theme.ToggleOff,
-                }):Play()
-                TweenService:Create(knob, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
-                    Position = UDim2.new(0, 3, 0.5, -8),
-                }):Play()
+                TweenService:Create(switchBg, TweenInfo.new(0.2), {BackgroundColor3 = Theme.ToggleOff}):Play()
+                TweenService:Create(knob, TweenInfo.new(0.2), {Position = UDim2.new(0, 3, 0.5, -8)}):Play()
             end
         end
 
@@ -606,18 +527,11 @@ local function createTab(name, icon)
             ripple(toggleCard, toggleCard.AbsoluteSize.X - 30, toggleCard.AbsoluteSize.Y / 2)
             if callback then callback(state) end
         end)
-
         update()
 
         return {
-            Set = function(val)
-                state = val
-                update()
-                if callback then callback(state) end
-            end,
-            Get = function()
-                return state
-            end,
+            Set = function(val) state = val; update(); if callback then callback(state) end end,
+            Get = function() return state end,
         }
     end
 
@@ -643,19 +557,12 @@ local function createTab(name, icon)
         label.TextSize = 13
         label.Parent = btnCard
 
-        btnCard.MouseEnter:Connect(function()
-            TweenService:Create(btnCard, TweenInfo.new(0.15), {BackgroundColor3 = Theme.CardHover}):Play()
-            TweenService:Create(label, TweenInfo.new(0.15), {TextColor3 = Theme.AccentLight}):Play()
-        end)
-        btnCard.MouseLeave:Connect(function()
-            TweenService:Create(btnCard, TweenInfo.new(0.15), {BackgroundColor3 = Theme.Card}):Play()
-            TweenService:Create(label, TweenInfo.new(0.15), {TextColor3 = Theme.Text}):Play()
-        end)
+        btnCard.MouseEnter:Connect(function() TweenService:Create(btnCard, TweenInfo.new(0.15), {BackgroundColor3 = Theme.CardHover}):Play(); TweenService:Create(label, TweenInfo.new(0.15), {TextColor3 = Theme.AccentLight}):Play() end)
+        btnCard.MouseLeave:Connect(function() TweenService:Create(btnCard, TweenInfo.new(0.15), {BackgroundColor3 = Theme.Card}):Play(); TweenService:Create(label, TweenInfo.new(0.15), {TextColor3 = Theme.Text}):Play() end)
         btnCard.MouseButton1Click:Connect(function()
             ripple(btnCard, btnCard.AbsoluteSize.X / 2, btnCard.AbsoluteSize.Y / 2)
             if callback then callback() end
         end)
-
         return btnCard
     end
 
@@ -740,28 +647,19 @@ local function createTab(name, icon)
             local pct = math.clamp((Mouse.X - track.AbsolutePosition.X) / track.AbsoluteSize.X, 0, 1)
             update(min + (max - min) * pct)
         end)
-
         UserInputService.InputChanged:Connect(function(input)
             if sliding and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
                 local pct = math.clamp((Mouse.X - track.AbsolutePosition.X) / track.AbsoluteSize.X, 0, 1)
                 update(min + (max - min) * pct)
             end
         end)
-
         UserInputService.InputEnded:Connect(function(input)
             if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
                 sliding = false
             end
         end)
-
         update(default or min)
-
-        return {
-            Set = update,
-            Get = function()
-                return value
-            end,
-        }
+        return { Set = update, Get = function() return value end }
     end
 
     function api:Dropdown(text, options, default, callback)
@@ -832,11 +730,8 @@ local function createTab(name, icon)
 
         local function buildList()
             for _, child in pairs(listFrame:GetChildren()) do
-                if child:IsA("TextButton") then
-                    child:Destroy()
-                end
+                if child:IsA("TextButton") then child:Destroy() end
             end
-
             for _, opt in pairs(options) do
                 local optBtn = Instance.new("TextButton")
                 optBtn.Size = UDim2.new(1, 0, 0, 30)
@@ -860,14 +755,8 @@ local function createTab(name, icon)
                 optLabel.ZIndex = 12
                 optLabel.Parent = optBtn
 
-                optBtn.MouseEnter:Connect(function()
-                    TweenService:Create(optBtn, TweenInfo.new(0.1), {BackgroundColor3 = Theme.Hover}):Play()
-                    TweenService:Create(optLabel, TweenInfo.new(0.1), {TextColor3 = Theme.Text}):Play()
-                end)
-                optBtn.MouseLeave:Connect(function()
-                    TweenService:Create(optBtn, TweenInfo.new(0.1), {BackgroundColor3 = Theme.Card}):Play()
-                    TweenService:Create(optLabel, TweenInfo.new(0.1), {TextColor3 = (opt == selected) and Theme.AccentLight or Theme.TextDim}):Play()
-                end)
+                optBtn.MouseEnter:Connect(function() TweenService:Create(optBtn, TweenInfo.new(0.1), {BackgroundColor3 = Theme.Hover}):Play() end)
+                optBtn.MouseLeave:Connect(function() TweenService:Create(optBtn, TweenInfo.new(0.1), {BackgroundColor3 = Theme.Card}):Play() end)
                 optBtn.MouseButton1Click:Connect(function()
                     selected = opt
                     selectedLabel.Text = opt
@@ -885,27 +774,15 @@ local function createTab(name, icon)
             if expanded then
                 buildList()
                 local targetHeight = 40 + (#options * 32) + 8
-                TweenService:Create(ddCard, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
-                    Size = UDim2.new(1, 0, 0, targetHeight),
-                }):Play()
+                TweenService:Create(ddCard, TweenInfo.new(0.2), {Size = UDim2.new(1, 0, 0, targetHeight)}):Play()
                 TweenService:Create(arrow, TweenInfo.new(0.2), {Text = "^"}):Play()
             else
-                TweenService:Create(ddCard, TweenInfo.new(0.2), {
-                    Size = UDim2.new(1, 0, 0, 40),
-                }):Play()
+                TweenService:Create(ddCard, TweenInfo.new(0.2), {Size = UDim2.new(1, 0, 0, 40)}):Play()
                 TweenService:Create(arrow, TweenInfo.new(0.2), {Text = "v"}):Play()
             end
         end)
 
-        return {
-            Set = function(val)
-                selected = val
-                selectedLabel.Text = val
-            end,
-            Get = function()
-                return selected
-            end,
-        }
+        return { Set = function(val) selected = val; selectedLabel.Text = val end, Get = function() return selected end }
     end
 
     function api:Label(text)
@@ -920,14 +797,7 @@ local function createTab(name, icon)
         lbl.LayoutOrder = order
         lbl.Parent = page
         order = order + 1
-        return {
-            Set = function(val)
-                lbl.Text = val
-            end,
-            Get = function()
-                return lbl.Text
-            end,
-        }
+        return { Set = function(val) lbl.Text = val end, Get = function() return lbl.Text end }
     end
 
     function api:Keybind(text, defaultKey, callback)
@@ -973,7 +843,6 @@ local function createTab(name, icon)
             keyBtn.Text = "..."
             keyBtn.TextColor3 = Theme.Warning
         end)
-
         UserInputService.InputBegan:Connect(function(input, gpe)
             if listening and input.KeyCode ~= Enum.KeyCode.Unknown then
                 listening = false
@@ -984,18 +853,12 @@ local function createTab(name, icon)
                 if callback then callback() end
             end
         end)
-
         return { Get = function() return currentKey end }
     end
 
-    -- Auto-select first tab
     if tabIndex == 1 then
-        task.defer(function()
-            task.wait(0.1)
-            selectTab()
-        end)
+        task.defer(function() task.wait(0.1); selectTab() end)
     end
-
     return api
 end
 
@@ -1016,15 +879,10 @@ notifLayout.Parent = NotifContainer
 
 local function notify(title, message, duration, notifType)
     duration = duration or 3
-
     local color = Theme.Accent
-    if notifType == "success" then
-        color = Theme.Success
-    elseif notifType == "danger" then
-        color = Theme.Danger
-    elseif notifType == "warning" then
-        color = Theme.Warning
-    end
+    if notifType == "success" then color = Theme.Success
+    elseif notifType == "danger" then color = Theme.Danger
+    elseif notifType == "warning" then color = Theme.Warning end
 
     local notif = Instance.new("Frame")
     notif.Size = UDim2.new(1, 0, 0, 56)
@@ -1079,19 +937,11 @@ local function notify(title, message, duration, notifType)
     progressFill.Parent = progressBg
 
     notif.Size = UDim2.new(0, 0, 0, 56)
-    TweenService:Create(notif, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
-        Size = UDim2.new(1, 0, 0, 56),
-    }):Play()
-
-    TweenService:Create(progressFill, TweenInfo.new(duration, Enum.EasingStyle.Linear), {
-        Size = UDim2.new(0, 0, 1, 0),
-    }):Play()
+    TweenService:Create(notif, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Size = UDim2.new(1, 0, 0, 56)}):Play()
+    TweenService:Create(progressFill, TweenInfo.new(duration, Enum.EasingStyle.Linear), {Size = UDim2.new(0, 0, 1, 0)}):Play()
 
     task.delay(duration, function()
-        TweenService:Create(notif, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
-            Size = UDim2.new(0, 0, 0, 56),
-            BackgroundTransparency = 1,
-        }):Play()
+        TweenService:Create(notif, TweenInfo.new(0.3), {Size = UDim2.new(0, 0, 0, 56), BackgroundTransparency = 1}):Play()
         task.wait(0.3)
         notif:Destroy()
     end)
@@ -1113,11 +963,7 @@ local Config = {
     AutoBuyFruit = false,
     SelectedFruit = "Dragon",
     AutoStats = false,
-    MeleePts = 25,
-    DefensePts = 25,
-    SwordPts = 25,
-    GunPts = 0,
-    FruitPts = 25,
+    MeleePts = 25, DefensePts = 25, SwordPts = 25, GunPts = 0, FruitPts = 25,
     AutoHop = false,
     HopMinPlayers = 5,
     AntiAFK = true,
@@ -1125,10 +971,11 @@ local Config = {
     AuraRange = 50,
     UIScale = 1,
     SelectedTheme = "Purple",
+    SuperEffective = false,
 }
 
 -- ============================================================
--- BLOX FRUITS BACKEND
+-- BLOX FRUITS BACKEND — FIXED v2.0
 -- ============================================================
 local Character, Humanoid, RootPart
 
@@ -1147,21 +994,37 @@ LocalPlayer.CharacterAdded:Connect(function(char)
     Humanoid = char:WaitForChild("Humanoid", 5)
     RootPart = char:WaitForChild("HumanoidRootPart", 5)
 end)
-
 pcall(refreshCharacter)
 
+-- CRITICAL FIX: Remotes path detection
+-- In Blox Fruits, CommF_ and CommE_ live inside ReplicatedStorage.Remotes
+local Remotes = ReplicatedStorage:WaitForChild("Remotes", 10)
+local CommF = Remotes and Remotes:FindFirstChild("CommF_")
+local CommE = Remotes and Remotes:FindFirstChild("CommE_")
+
+-- Fallback: check if they're directly in ReplicatedStorage (older versions)
+if not CommF then CommF = ReplicatedStorage:FindFirstChild("CommF_") end
+if not CommE then CommE = ReplicatedStorage:FindFirstChild("CommE_") end
+
 local function getCommF()
-    return ReplicatedStorage:FindFirstChild("CommF_")
+    if CommF then return CommF end
+    CommF = ReplicatedStorage:FindFirstChild("Remotes") and ReplicatedStorage.Remotes:FindFirstChild("CommF_")
+    if not CommF then CommF = ReplicatedStorage:FindFirstChild("CommF_") end
+    return CommF
 end
 
+local function getCommE()
+    if CommE then return CommE end
+    CommE = ReplicatedStorage:FindFirstChild("Remotes") and ReplicatedStorage.Remotes:FindFirstChild("CommE_")
+    if not CommE then CommE = ReplicatedStorage:FindFirstChild("CommE_") end
+    return CommE
+end
+
+-- Tween function
 local function tweenTo(pos, speed)
     speed = speed or Config.TweenSpeed
-    if not RootPart then
-        refreshCharacter()
-    end
-    if not RootPart then
-        return
-    end
+    if not RootPart then refreshCharacter() end
+    if not RootPart then return end
     local dist = (RootPart.Position - pos).Magnitude
     if dist < 15 then
         RootPart.CFrame = CFrame.new(pos)
@@ -1173,39 +1036,75 @@ local function tweenTo(pos, speed)
     tw.Completed:Wait()
 end
 
+-- ============================================================
+-- QUEST DATA — ALL THREE SEAS
+-- ============================================================
 local Quests = {
-    [1] = {Name = "Trainee", Mob = "Bandit", Pos = Vector3.new(1059, 16, 1548)},
-    [8] = {Name = "Monkey", Mob = "Monkey", Pos = Vector3.new(-1591, 37, 167)},
-    [15] = {Name = "Gorilla", Mob = "Gorilla", Pos = Vector3.new(-1233, 6, -504)},
-    [30] = {Name = "Buggy", Mob = "Buggy Crew", Pos = Vector3.new(-1139, 13, 4049)},
-    [45] = {Name = "Desert", Mob = "Desert Bandit", Pos = Vector3.new(974, 6, 4556)},
-    [60] = {Name = "Desert Officer", Mob = "Desert Officer", Pos = Vector3.new(1322, 6, 4236)},
-    [75] = {Name = "Snow Bandit", Mob = "Snow Bandit", Pos = Vector3.new(1366, 7, -477)},
-    [90] = {Name = "Snow Marine", Mob = "Snow Marine", Pos = Vector3.new(1536, 7, -478)},
-    [100] = {Name = "Marine", Mob = "Marine Lieutenant", Pos = Vector3.new(-4800, 22, 4314)},
-    [120] = {Name = "Sky", Mob = "Sky Bandit", Pos = Vector3.new(-4864, 724, -2609)},
-    [150] = {Name = "Prisoner", Mob = "Prisoner", Pos = Vector3.new(5310, 1, 4740)},
-    [175] = {Name = "Dangerous Prisoner", Mob = "Dangerous Prisoner", Pos = Vector3.new(5400, 1, 4730)},
-    [200] = {Name = "Tide Keeper", Mob = "Tide Keeper", Pos = Vector3.new(-4570, 272, -2580)},
-    [225] = {Name = "Fishman Warrior", Mob = "Fishman Warrior", Pos = Vector3.new(-2586, 8, -3343)},
-    [275] = {Name = "Wanda", Mob = "Wanda", Pos = Vector3.new(-1166, 73, -4346)},
-    [300] = {Name = "Magma Ninja", Mob = "Magma Ninja", Pos = Vector3.new(-5414, 88, -2790)},
-    [350] = {Name = "Marine Captain", Mob = "Marine Captain", Pos = Vector3.new(-2270, 16, 5215)},
-    [400] = {Name = "Thunder God", Mob = "Thunder God", Pos = Vector3.new(-7748, 24200, -24930)},
-    [450] = {Name = "Ice Soldier", Mob = "Ice Soldier", Pos = Vector3.new(5950, 47, -7289)},
-    [500] = {Name = "Forgotten Warrior", Mob = "Forgotten Warrior", Pos = Vector3.new(-3034, 314, -7476)},
-    [575] = {Name = "Pirate Millionaire", Mob = "Pirate Millionaire", Pos = Vector3.new(-1946, 100, -8346)},
-    [625] = {Name = "Galley Captain", Mob = "Galley Captain", Pos = Vector3.new(-1810, 100, -8543)},
-    [700] = {Name = "Island Empress", Mob = "Island Empress", Pos = Vector3.new(-13500, 285, -9600)},
-    [850] = {Name = "Forest Pirate", Mob = "Forest Pirate", Pos = Vector3.new(-13425, 367, -9450)},
-    [900] = {Name = "Mythological Pirate", Mob = "Mythological Pirate", Pos = Vector3.new(-13493, 370, -9490)},
-    [1000] = {Name = "Jungle Pirate", Mob = "Jungle Pirate", Pos = Vector3.new(-13300, 370, -9400)},
-    [1050] = {Name = "Musketeer Pirate", Mob = "Musketeer Pirate", Pos = Vector3.new(-13350, 375, -9350)},
-    [1100] = {Name = "Reborn Skeleton", Mob = "Reborn Skeleton", Pos = Vector3.new(-9510, 141, 5845)},
-    [1150] = {Name = "Living Zombie", Mob = "Living Zombie", Pos = Vector3.new(-9530, 141, 5810)},
-    [1200] = {Name = "Demonic Soul", Mob = "Demonic Soul", Pos = Vector3.new(-9520, 141, 5875)},
-    [1325] = {Name = "Posessed Mummy", Mob = "Posessed Mummy", Pos = Vector3.new(-9550, 141, 5825)},
-    [1500] = {Name = "Drowned Cook", Mob = "Drowned Cook", Pos = Vector3.new(-9500, 141, 5800)},
+    -- FIRST SEA
+    [1]    = {Name = "Trainee",           Mob = "Bandit",               Pos = Vector3.new(1059, 16, 1548)},
+    [8]    = {Name = "Monkey",            Mob = "Monkey",               Pos = Vector3.new(-1591, 37, 167)},
+    [15]   = {Name = "Gorilla",           Mob = "Gorilla",              Pos = Vector3.new(-1233, 6, -504)},
+    [30]   = {Name = "Buggy",             Mob = "Buggy Crew",           Pos = Vector3.new(-1139, 13, 4049)},
+    [45]   = {Name = "Desert",            Mob = "Desert Bandit",        Pos = Vector3.new(974, 6, 4556)},
+    [60]   = {Name = "Desert Officer",    Mob = "Desert Officer",       Pos = Vector3.new(1322, 6, 4236)},
+    [75]   = {Name = "Snow Bandit",       Mob = "Snow Bandit",          Pos = Vector3.new(1366, 7, -477)},
+    [90]   = {Name = "Snow Marine",       Mob = "Snow Marine",          Pos = Vector3.new(1536, 7, -478)},
+    [100]  = {Name = "Marine",            Mob = "Marine Lieutenant",    Pos = Vector3.new(-4800, 22, 4314)},
+    [120]  = {Name = "Sky",               Mob = "Sky Bandit",           Pos = Vector3.new(-4864, 724, -2609)},
+    [150]  = {Name = "Prisoner",          Mob = "Prisoner",             Pos = Vector3.new(5310, 1, 4740)},
+    [175]  = {Name = "Dangerous Prisoner",Mob = "Dangerous Prisoner",   Pos = Vector3.new(5400, 1, 4730)},
+    [200]  = {Name = "Tide Keeper",       Mob = "Tide Keeper",          Pos = Vector3.new(-4570, 272, -2580)},
+    [225]  = {Name = "Fishman Warrior",   Mob = "Fishman Warrior",      Pos = Vector3.new(-2586, 8, -3343)},
+    [275]  = {Name = "Wanda",             Mob = "Wanda",                Pos = Vector3.new(-1166, 73, -4346)},
+    [300]  = {Name = "Magma Ninja",       Mob = "Magma Ninja",          Pos = Vector3.new(-5414, 88, -2790)},
+    [350]  = {Name = "Marine Captain",    Mob = "Marine Captain",       Pos = Vector3.new(-2270, 16, 5215)},
+    [400]  = {Name = "Thunder God",       Mob = "Thunder God",          Pos = Vector3.new(-7748, 24200, -24930)},
+    [450]  = {Name = "Ice Soldier",       Mob = "Ice Soldier",          Pos = Vector3.new(5950, 47, -7289)},
+    [500]  = {Name = "Forgotten Warrior", Mob = "Forgotten Warrior",    Pos = Vector3.new(-3034, 314, -7476)},
+    [575]  = {Name = "Pirate Millionaire",Mob = "Pirate Millionaire",   Pos = Vector3.new(-1946, 100, -8346)},
+    [625]  = {Name = "Galley Captain",    Mob = "Galley Captain",       Pos = Vector3.new(-1810, 100, -8543)},
+    [700]  = {Name = "Island Empress",    Mob = "Island Empress",       Pos = Vector3.new(-13500, 285, -9600)},
+    -- SECOND SEA
+    [850]  = {Name = "Forest Pirate",     Mob = "Forest Pirate",        Pos = Vector3.new(-13425, 367, -9450)},
+    [900]  = {Name = "Mythological Pirate",Mob = "Mythological Pirate", Pos = Vector3.new(-13493, 370, -9490)},
+    [1000] = {Name = "Jungle Pirate",     Mob = "Jungle Pirate",        Pos = Vector3.new(-13300, 370, -9400)},
+    [1050] = {Name = "Musketeer Pirate",  Mob = "Musketeer Pirate",     Pos = Vector3.new(-13350, 375, -9350)},
+    [1100] = {Name = "Reborn Skeleton",   Mob = "Reborn Skeleton",      Pos = Vector3.new(-9510, 141, 5845)},
+    [1150] = {Name = "Living Zombie",     Mob = "Living Zombie",        Pos = Vector3.new(-9530, 141, 5810)},
+    [1200] = {Name = "Demonic Soul",      Mob = "Demonic Soul",         Pos = Vector3.new(-9520, 141, 5875)},
+    [1325] = {Name = "Posessed Mummy",    Mob = "Posessed Mummy",       Pos = Vector3.new(-9550, 141, 5825)},
+    [1500] = {Name = "Drowned Cook",      Mob = "Drowned Cook",         Pos = Vector3.new(-9500, 141, 5800)},
+    -- THIRD SEA
+    [1525] = {Name = "Pilot",             Mob = "Pilot",                Pos = Vector3.new(-13442, 285, -9400)},
+    [1575] = {Name = "Sea Soldier",       Mob = "Sea Soldier",          Pos = Vector3.new(-13460, 285, -9420)},
+    [1625] = {Name = "Water Fighter",     Mob = "Water Fighter",        Pos = Vector3.new(-13480, 285, -9440)},
+    [1700] = {Name = "Gargoyle",          Mob = "Gargoyle",             Pos = Vector3.new(-13500, 285, -9600)},
+    [1725] = {Name = "Dragon Talon Sage", Mob = "Dragon Talon Sage",    Pos = Vector3.new(-13520, 285, -9620)},
+    [1775] = {Name = "Giant Islander",    Mob = "Giant Islander",       Pos = Vector3.new(-13480, 380, -9500)},
+    [1800] = {Name = "Dragon Talon",      Mob = "Dragon Talon",         Pos = Vector3.new(-13540, 285, -9640)},
+    [1825] = {Name = "Musketeer Pirate 2",Mob = "Musketeer Pirate",     Pos = Vector3.new(-13350, 375, -9350)},
+    [1875] = {Name = "Street Thug",       Mob = "Street Thug",          Pos = Vector3.new(-13400, 285, -9380)},
+    [1900] = {Name = "Jungle Pirate 2",   Mob = "Jungle Pirate",        Pos = Vector3.new(-13300, 370, -9400)},
+    [1925] = {Name = "Reborn Skeleton 2", Mob = "Reborn Skeleton",      Pos = Vector3.new(-9510, 141, 5845)},
+    [1975] = {Name = "Living Zombie 2",   Mob = "Living Zombie",        Pos = Vector3.new(-9530, 141, 5810)},
+    [2000] = {Name = "Demonic Soul 2",    Mob = "Demonic Soul",         Pos = Vector3.new(-9520, 141, 5875)},
+    [2025] = {Name = "Posessed Mummy 2",  Mob = "Posessed Mummy",       Pos = Vector3.new(-9550, 141, 5825)},
+    [2075] = {Name = "Snow Bandit 2",     Mob = "Snow Bandit",          Pos = Vector3.new(1366, 7, -477)},
+    [2100] = {Name = "Snow Marine 2",     Mob = "Snow Marine",          Pos = Vector3.new(1536, 7, -478)},
+    [2125] = {Name = "Snow Village Guard",Mob = "Snow Village Guard",   Pos = Vector3.new(1540, 7, -480)},
+    [2150] = {Name = "Snow Village Warrior",Mob = "Snow Village Warrior",Pos = Vector3.new(1545, 7, -482)},
+    [2175] = {Name = "Cocoa Warrior",     Mob = "Cocoa Warrior",        Pos = Vector3.new(-13425, 367, -9450)},
+    [2200] = {Name = "Chocolate Bar Baker",Mob = "Chocolate Bar Baker", Pos = Vector3.new(-13430, 367, -9460)},
+    [2225] = {Name = "Sweet Pirate",      Mob = "Sweet Pirate",         Pos = Vector3.new(-13435, 367, -9470)},
+    [2250] = {Name = "Yeti",              Mob = "Yeti",                 Pos = Vector3.new(-13440, 367, -9480)},
+    [2275] = {Name = "Peanut Scout",      Mob = "Peanut Scout",         Pos = Vector3.new(-13445, 367, -9490)},
+    [2300] = {Name = "Peanut President",  Mob = "Peanut President",     Pos = Vector3.new(-13450, 367, -9500)},
+    [2325] = {Name = "Big MOM",           Mob = "Big MOM",              Pos = Vector3.new(-13455, 367, -9510)},
+    [2350] = {Name = "Cake Queen",        Mob = "Cake Queen",           Pos = Vector3.new(-13460, 367, -9520)},
+    [2375] = {Name = "rip_indra",         Mob = "rip_indra",            Pos = Vector3.new(-9510, 141, 5845)},
+    [2400] = {Name = "Sea Beast",         Mob = "Sea Beast",            Pos = Vector3.new(-9500, 141, 5800)},
+    [2500] = {Name = "Cursed Captain",    Mob = "Cursed Captain",       Pos = Vector3.new(-9520, 141, 5875)},
+    [2550] = {Name = "Koko",              Mob = "Koko",                 Pos = Vector3.new(-13470, 367, -9530)},
 }
 
 local function getBestQuest()
@@ -1226,100 +1125,169 @@ local function getBestQuest()
     return best
 end
 
+-- ============================================================
+-- MOB DETECTION
+-- ============================================================
 local function getClosestMob(targetName)
     local closest = nil
     local closestDist = math.huge
+
+    -- Check Workspace.Enemies
     local enemies = Workspace:FindFirstChild("Enemies")
-    if not enemies then
-        return nil
-    end
-    for _, mob in pairs(enemies:GetChildren()) do
-        if mob:FindFirstChild("Humanoid") and mob.Humanoid.Health > 0 then
-            if not targetName or mob.Name == targetName then
-                local mobRoot = mob:FindFirstChild("HumanoidRootPart")
-                if mobRoot and RootPart then
-                    local dist = (RootPart.Position - mobRoot.Position).Magnitude
-                    if dist < closestDist then
-                        closest = mob
-                        closestDist = dist
+    if enemies then
+        for _, mob in pairs(enemies:GetChildren()) do
+            if mob:FindFirstChild("Humanoid") and mob.Humanoid.Health > 0 then
+                if not targetName or mob.Name == targetName then
+                    local mobRoot = mob:FindFirstChild("HumanoidRootPart")
+                    if mobRoot and RootPart then
+                        local dist = (RootPart.Position - mobRoot.Position).Magnitude
+                        if dist < closestDist then
+                            closest = mob
+                            closestDist = dist
+                        end
                     end
                 end
             end
         end
     end
+
+    -- Fallback: check Workspace directly for mobs
+    if not closest then
+        for _, obj in pairs(Workspace:GetChildren()) do
+            if obj:IsA("Model") and obj:FindFirstChild("Humanoid") and obj.Humanoid.Health > 0 then
+                if obj ~= Character and not obj:IsDescendantOf(Character) then
+                    if not targetName or obj.Name == targetName then
+                        local mobRoot = obj:FindFirstChild("HumanoidRootPart")
+                        if mobRoot and RootPart then
+                            local dist = (RootPart.Position - mobRoot.Position).Magnitude
+                            if dist < closestDist then
+                                closest = obj
+                                closestDist = dist
+                            end
+                        end
+                    end
+                end
+            end
+        end
+    end
+
     return closest
 end
 
+-- ============================================================
+-- MOB BRINGING — FIXED
+-- ============================================================
 local function bringMob(mob)
-    if not mob then
-        return
-    end
-    if not mob:FindFirstChild("HumanoidRootPart") then
-        return
-    end
+    if not mob then return end
+    if not mob:FindFirstChild("HumanoidRootPart") then return end
     pcall(function()
-        mob.HumanoidRootPart.CFrame = RootPart.CFrame * CFrame.new(0, 0, -8)
+        mob.HumanoidRootPart.CFrame = RootPart.CFrame * CFrame.new(0, 0, -10)
         mob.HumanoidRootPart.CanCollide = false
-        mob.HumanoidRootPart.Size = Vector3.new(40, 40, 40)
+        -- Don't use sethiddenproperty - directly set properties
         if mob:FindFirstChild("Humanoid") then
             pcall(function()
-                sethiddenproperty(mob.Humanoid, "WalkSpeed", 0)
-                sethiddenproperty(mob.Humanoid, "JumpPower", 0)
+                mob.Humanoid.WalkSpeed = 0
+                mob.Humanoid.JumpPower = 0
             end)
         end
     end)
 end
 
+-- ============================================================
+-- ATTACK SYSTEM — COMPLETELY REWRITTEN
+-- ============================================================
+local lastAttack = 0
+
 local function attackMob(mob)
-    if not mob then
-        return
+    if not mob then return end
+    if not mob:FindFirstChild("HumanoidRootPart") then return end
+    if not RootPart then return end
+
+    local mobPos = mob.HumanoidRootPart.Position
+    local myPos = RootPart.Position
+
+    -- Method 1: Fire CommE_ (primary attack remote)
+    local commE = getCommE()
+    if commE then
+        pcall(function()
+            commE:FireServer(mobPos)
+        end)
     end
-    if not mob:FindFirstChild("HumanoidRootPart") then
-        return
+
+    -- Method 2: Fire CommE_ with CFrame (some versions need this)
+    if commE then
+        pcall(function()
+            commE:FireServer(mobPos, CFrame.new(myPos, mobPos))
+        end)
     end
-    pcall(function()
-        local args = {
-            [1] = mob.HumanoidRootPart.Position,
-            [2] = CFrame.new(RootPart.Position),
-        }
-        local remotes = ReplicatedStorage:FindFirstChild("Remotes")
-        if remotes then
-            local combat = remotes:FindFirstChild("Combat")
-            if combat and (Config.AttackMethod == "M1" or Config.AttackMethod == "Both") then
-                combat:FireServer(unpack(args))
-            end
-            local sword = remotes:FindFirstChild("Sword")
-            if sword and Character:FindFirstChildOfClass("Tool") and (Config.AttackMethod == "Skill" or Config.AttackMethod == "Both") then
-                sword:FireServer(unpack(args))
+
+    -- Method 3: Simulate mouse click (M1)
+    if Config.FastAttack then
+        pcall(function()
+            VirtualInputManager:SendMouseButtonEvent(0, 0, 0, true, game, 1)
+            task.wait(0.02)
+            VirtualInputManager:SendMouseButtonEvent(0, 0, 0, false, game, 1)
+        end)
+    end
+
+    -- Method 4: Super Effective (use all skills)
+    if Config.SuperEffective then
+        local now = tick()
+        if now - lastAttack > 1 then
+            lastAttack = now
+            for _, key in pairs({"Z", "X", "C", "V", "F"}) do
+                pcall(function()
+                    VirtualInputManager:SendKeyEvent(true, Enum.KeyCode[key], false, game)
+                    task.wait(0.03)
+                    VirtualInputManager:SendKeyEvent(false, Enum.KeyCode[key], false, game)
+                end)
             end
         end
-    end)
+    end
 end
 
+-- ============================================================
+-- QUEST SYSTEM — FIXED
+-- ============================================================
 local function takeQuest(quest)
-    if not quest then
-        return
-    end
+    if not quest then return end
     local comm = getCommF()
-    if not comm then
-        return
-    end
+    if not comm then return end
     pcall(function()
-        tweenTo(quest.Pos, Config.TweenSpeed)
-        task.wait(0.3)
+        -- Tween to quest NPC
+        if RootPart then
+            local dist = (RootPart.Position - quest.Pos).Magnitude
+            if dist > 20 then
+                tweenTo(quest.Pos, Config.TweenSpeed)
+                task.wait(0.3)
+            end
+        end
+        -- Accept quest via CommF_
         comm:InvokeServer("StartQuest", quest.Name, 1)
     end)
 end
 
+local function hasActiveQuest()
+    local questGui = LocalPlayer:FindFirstChild("PlayerGui")
+    if questGui then
+        local questFrame = questGui:FindFirstChild("Quest")
+        if questFrame then
+            return questFrame.Enabled
+        end
+    end
+    return false
+end
+
+-- ============================================================
+-- SERVER HOP
+-- ============================================================
 local function hopServer()
     notify("Server Hop", "Searching for a new server...", 3, "warning")
     local placeId = game.PlaceId
     local url = "https://games.roblox.com/v1/games/" .. placeId .. "/servers/Public?sortOrder=Asc&limit=100"
-
     local success, response = pcall(function()
         return HttpService:JSONDecode(game:HttpGet(url))
     end)
-
     if success and response and response.data then
         local candidates = {}
         for _, server in pairs(response.data) do
@@ -1348,46 +1316,37 @@ local HomeTab = createTab("Home", "H")
 HomeTab:Section("Player Information")
 HomeTab:Label("Username: " .. LocalPlayer.Name)
 HomeTab:Label("Display Name: " .. LocalPlayer.DisplayName)
-
 local levelLabel = HomeTab:Label("Level: Loading...")
 local beliLabel = HomeTab:Label("Beli: Loading...")
 local fragLabel = HomeTab:Label("Fragments: Loading...")
+local questLabel = HomeTab:Label("Current Quest: None")
 
 task.spawn(function()
     while true do
         task.wait(2)
         local data = LocalPlayer:FindFirstChild("Data")
         if data then
-            if data:FindFirstChild("Level") then
-                levelLabel.Set("Level: " .. tostring(data.Level.Value))
-            end
-            if data:FindFirstChild("Beli") then
-                beliLabel.Set("Beli: " .. tostring(data.Beli.Value))
-            end
-            if data:FindFirstChild("Fragments") then
-                fragLabel.Set("Fragments: " .. tostring(data.Fragments.Value))
-            end
+            if data:FindFirstChild("Level") then levelLabel.Set("Level: " .. tostring(data.Level.Value)) end
+            if data:FindFirstChild("Beli") then beliLabel.Set("Beli: " .. tostring(data.Beli.Value)) end
+            if data:FindFirstChild("Fragments") then fragLabel.Set("Fragments: " .. tostring(data.Fragments.Value)) end
+        end
+        local quest = getBestQuest()
+        if quest then
+            questLabel.Set("Best Quest: " .. quest.Name .. " (Lv." .. quest.Req .. ")")
         end
     end
 end)
 
 HomeTab:Section("Quick Actions")
-HomeTab:Button("Rejoin Server", function()
-    TeleportService:Teleport(game.PlaceId, LocalPlayer)
-end)
-HomeTab:Button("Copy Server ID", function()
-    setclipboard(game.JobId)
-    notify("Copied", "Server ID copied to clipboard", 2, "success")
-end)
-HomeTab:Button("Server Hop", function()
-    hopServer()
-end)
+HomeTab:Button("Rejoin Server", function() TeleportService:Teleport(game.PlaceId, LocalPlayer) end)
+HomeTab:Button("Copy Server ID", function() setclipboard(game.JobId); notify("Copied", "Server ID copied to clipboard", 2, "success") end)
+HomeTab:Button("Server Hop", function() hopServer() end)
 HomeTab:Section("About")
-HomeTab:Label("Ebanat Hub v1.0.1")
+HomeTab:Label("Ebanat Hub v2.0.0")
 HomeTab:Label("Built by ENI")
 HomeTab:Label("Press RightShift to toggle UI")
 
--- AUTO FARM
+-- AUTO FARM — FIXED
 local FarmTab = createTab("Auto Farm", "S")
 FarmTab:Section("Combat")
 FarmTab:Toggle("Auto Farm", "Automatically farms nearest mobs for XP", false, function(state)
@@ -1399,6 +1358,9 @@ FarmTab:Toggle("Auto Quest", "Automatically accepts best quest", false, function
 end)
 FarmTab:Toggle("Fast Attack", "Uses fast attack method", true, function(state)
     Config.FastAttack = state
+end)
+FarmTab:Toggle("Super Effective", "Uses all skills (Z,X,C,V,F)", false, function(state)
+    Config.SuperEffective = state
 end)
 FarmTab:Toggle("Bring Mobs", "Teleports mobs to you", true, function(state)
     Config.BringMobs = state
@@ -1428,41 +1390,56 @@ FarmTab:Button("Take Best Quest", function()
         notify("Quest", "Taking quest: " .. quest.Name, 2)
     end
 end)
+FarmTab:Button("Show Remotes Info", function()
+    local commF = getCommF()
+    local commE = getCommE()
+    notify("Remotes", "CommF: " .. (commF and "Found" or "Missing") .. " | CommE: " .. (commE and "Found" or "Missing"), 5, "warning")
+end)
 
--- Auto Farm loop
-RunService.Heartbeat:Connect(function()
-    if not Config.AutoFarm then
-        return
-    end
-    pcall(function()
-        if not RootPart then
-            refreshCharacter()
-            return
-        end
-        local quest = getBestQuest()
-        if not quest then
-            return
-        end
-
-        if Config.AutoQuest then
-            local questGui = LocalPlayer:FindFirstChild("PlayerGui")
-            if questGui then
-                local questFrame = questGui:FindFirstChild("Quest")
-                if not questFrame or not questFrame.Enabled then
-                    takeQuest(quest)
-                    task.wait(0.5)
+-- CRITICAL FIX: Auto farm loop using task.spawn instead of Heartbeat
+task.spawn(function()
+    while true do
+        task.wait(0.1)
+        if not Config.AutoFarm then
+            -- Do nothing when disabled
+        else
+            pcall(function()
+                if not RootPart then
+                    refreshCharacter()
                 end
-            end
-        end
+                if not RootPart then
+                    return
+                end
 
-        local mob = getClosestMob(quest.Mob)
-        if mob then
-            if Config.BringMobs then
-                bringMob(mob)
-            end
-            attackMob(mob)
+                local quest = getBestQuest()
+                if not quest then
+                    return
+                end
+
+                -- Auto quest
+                if Config.AutoQuest then
+                    if not hasActiveQuest() then
+                        takeQuest(quest)
+                        task.wait(1)
+                    end
+                end
+
+                -- Find mob
+                local mob = getClosestMob(quest.Mob)
+                if not mob then
+                    -- Fallback: farm any nearest mob
+                    mob = getClosestMob(nil)
+                end
+
+                if mob then
+                    if Config.BringMobs then
+                        bringMob(mob)
+                    end
+                    attackMob(mob)
+                end
+            end)
         end
-    end)
+    end
 end)
 
 -- CHESTS
@@ -1475,13 +1452,12 @@ end)
 ChestTab:Button("Collect All Chests Now", function()
     notify("Chests", "Collecting chests...", 2)
     task.spawn(function()
+        if not RootPart then return end
         for _, obj in pairs(Workspace:GetChildren()) do
             if obj.Name:lower():match("chest") then
                 local part = obj:FindFirstChildWhichIsA("BasePart")
-                if not part and obj:IsA("BasePart") then
-                    part = obj
-                end
-                if part and RootPart then
+                if not part and obj:IsA("BasePart") then part = obj end
+                if part then
                     tweenTo(part.Position, 300)
                     task.wait(0.3)
                     pcall(function()
@@ -1494,18 +1470,16 @@ ChestTab:Button("Collect All Chests Now", function()
     end)
 end)
 
--- Chest loop
 task.spawn(function()
-    while task.wait(0.5) do
-        if Config.AutoChests then
+    while true do
+        task.wait(0.5)
+        if Config.AutoChests and RootPart then
             pcall(function()
                 for _, obj in pairs(Workspace:GetChildren()) do
                     if obj.Name:lower():match("chest") then
                         local part = obj:FindFirstChildWhichIsA("BasePart")
-                        if not part and obj:IsA("BasePart") then
-                            part = obj
-                        end
-                        if part and RootPart then
+                        if not part and obj:IsA("BasePart") then part = obj end
+                        if part then
                             tweenTo(part.Position, 300)
                             task.wait(0.3)
                             pcall(function()
@@ -1535,44 +1509,24 @@ FruitsTab:Toggle("Auto Buy Fruit", "Auto buys selected fruit from shop", false, 
     Config.AutoBuyFruit = state
 end)
 FruitsTab:Dropdown("Select Fruit", {
-    "Dragon", "Kitsune", "Leopard", "Dough", "Venom",
-    "Shadow", "Control", "Gravity", "Buddha",
-    "Phoenix", "Rumble", "Paw", "Revive", "Sand",
-    "Dark", "Ice", "Light", "Magma", "Rubber", "Diamond",
-    "String", "Portal", "Sound", "Spider", "Blizzard"
-}, "Dragon", function(opt)
-    Config.SelectedFruit = opt
-end)
+    "Dragon", "Kitsune", "Leopard", "Dough", "Venom", "Shadow", "Control", "Gravity", "Buddha",
+    "Phoenix", "Rumble", "Paw", "Revive", "Sand", "Dark", "Ice", "Light", "Magma", "Rubber",
+    "Diamond", "String", "Portal", "Sound", "Spider", "Blizzard"
+}, "Dragon", function(opt) Config.SelectedFruit = opt end)
 FruitsTab:Button("Buy Random Fruit", function()
     local comm = getCommF()
-    if comm then
-        pcall(function()
-            comm:InvokeServer("GetRandomFruit")
-        end)
-        notify("Shop", "Purchased random fruit", 2, "success")
-    end
+    if comm then pcall(function() comm:InvokeServer("GetRandomFruit") end); notify("Shop", "Purchased random fruit", 2, "success") end
 end)
 FruitsTab:Button("Store Current Fruit", function()
     local comm = getCommF()
-    if comm then
-        pcall(function()
-            comm:InvokeServer("StoreFruit")
-        end)
-        notify("Storage", "Fruit stored", 2, "success")
-    end
+    if comm then pcall(function() comm:InvokeServer("StoreFruit") end); notify("Storage", "Fruit stored", 2, "success") end
 end)
 
--- Fruit loop
 task.spawn(function()
-    while task.wait(0.5) do
-        if Config.AutoFruits then
+    while true do
+        task.wait(0.5)
+        if Config.AutoFruits and RootPart then
             pcall(function()
-                if not RootPart then
-                    refreshCharacter()
-                end
-                if not RootPart then
-                    return
-                end
                 for _, obj in pairs(Workspace:GetChildren()) do
                     if obj:IsA("Model") and obj.Name:lower():match("fruit") then
                         local part = obj:FindFirstChildWhichIsA("BasePart")
@@ -1587,11 +1541,7 @@ task.spawn(function()
                                 end)
                                 if Config.AutoStoreFruits then
                                     local comm = getCommF()
-                                    if comm then
-                                        pcall(function()
-                                            comm:InvokeServer("StoreFruit")
-                                        end)
-                                    end
+                                    if comm then pcall(function() comm:InvokeServer("StoreFruit") end) end
                                 end
                             end
                         end
@@ -1617,19 +1567,13 @@ StatsTab:Slider("Gun", 0, 100, 0, "%", function(val) Config.GunPts = val end)
 StatsTab:Slider("Blox Fruit", 0, 100, 25, "%", function(val) Config.FruitPts = val end)
 StatsTab:Button("Distribute Now", function()
     local comm = getCommF()
-    if not comm then
-        return
-    end
+    if not comm then return end
     local data = LocalPlayer:FindFirstChild("Data")
-    if not data or not data:FindFirstChild("Points") then
-        return
-    end
+    if not data or not data:FindFirstChild("Points") then return end
     local points = data.Points.Value
     if points > 0 then
         local total = Config.MeleePts + Config.DefensePts + Config.SwordPts + Config.GunPts + Config.FruitPts
-        if total == 0 then
-            total = 100
-        end
+        if total == 0 then total = 100 end
         pcall(function()
             comm:InvokeServer("AddPoint", "Melee", math.floor(points * Config.MeleePts / total))
             comm:InvokeServer("AddPoint", "Defense", math.floor(points * Config.DefensePts / total))
@@ -1643,25 +1587,19 @@ StatsTab:Button("Distribute Now", function()
     end
 end)
 
--- Stats loop
 task.spawn(function()
-    while task.wait(2) do
+    while true do
+        task.wait(2)
         if Config.AutoStats then
             pcall(function()
                 local comm = getCommF()
-                if not comm then
-                    return
-                end
+                if not comm then return end
                 local data = LocalPlayer:FindFirstChild("Data")
-                if not data or not data:FindFirstChild("Points") then
-                    return
-                end
+                if not data or not data:FindFirstChild("Points") then return end
                 local points = data.Points.Value
                 if points > 0 then
                     local total = Config.MeleePts + Config.DefensePts + Config.SwordPts + Config.GunPts + Config.FruitPts
-                    if total == 0 then
-                        total = 100
-                    end
+                    if total == 0 then total = 100 end
                     pcall(function()
                         comm:InvokeServer("AddPoint", "Melee", math.floor(points * Config.MeleePts / total))
                         comm:InvokeServer("AddPoint", "Defense", math.floor(points * Config.DefensePts / total))
@@ -1720,19 +1658,15 @@ HopTab:Toggle("Auto Hop", "Hops servers when no mobs or low population", false, 
         end)
     end
 end)
-HopTab:Slider("Min Players", 1, 30, 5, "", function(val)
-    Config.HopMinPlayers = val
-end)
-HopTab:Button("Hop Now", function()
-    hopServer()
-end)
+HopTab:Slider("Min Players", 1, 30, 5, "", function(val) Config.HopMinPlayers = val end)
+HopTab:Button("Hop Now", function() hopServer() end)
 
 -- TELEPORT
 local TeleportTab = createTab("Teleport", "T")
 TeleportTab:Section("Islands")
 local islands = {
-    {"First Sea", Vector3.new(1059, 16, 1548)},
-    {"Monkey Island", Vector3.new(-1591, 37, 167)},
+    {"First Sea Starter", Vector3.new(1059, 16, 1548)},
+    {"Jungle", Vector3.new(-1591, 37, 167)},
     {"Buggy Island", Vector3.new(-1139, 13, 4049)},
     {"Desert", Vector3.new(974, 6, 4556)},
     {"Snow Island", Vector3.new(1366, 7, -477)},
@@ -1747,13 +1681,12 @@ local islands = {
     {"Floating Turtle", Vector3.new(-13425, 367, -9450)},
     {"Haunted Castle", Vector3.new(-9510, 141, 5845)},
     {"Sea of Treats", Vector3.new(-9500, 141, 5800)},
+    {"Hydra Island", Vector3.new(-13500, 285, -9600)},
+    {"Port Town", Vector3.new(-13400, 285, -9400)},
 }
 for _, island in pairs(islands) do
     TeleportTab:Button(island[1], function()
-        if RootPart then
-            tweenTo(island[2], 300)
-            notify("Teleport", "Teleported to " .. island[1], 2, "success")
-        end
+        if RootPart then tweenTo(island[2], 300); notify("Teleport", "Teleported to " .. island[1], 2, "success") end
     end)
 end
 
@@ -1764,9 +1697,7 @@ PlayersTab:Toggle("Kill Aura", "Attacks all nearby mobs automatically", false, f
     Config.KillAura = state
     notify("Kill Aura", state and "Enabled" or "Disabled", 2, state and "success" or "warning")
 end)
-PlayersTab:Slider("Aura Range", 10, 200, 50, " studs", function(val)
-    Config.AuraRange = val
-end)
+PlayersTab:Slider("Aura Range", 10, 200, 50, " studs", function(val) Config.AuraRange = val end)
 PlayersTab:Section("Player List")
 PlayersTab:Button("Teleport to Random Player", function()
     local players = Players:GetPlayers()
@@ -1783,37 +1714,35 @@ PlayersTab:Button("Teleport to Random Player", function()
 end)
 
 -- Kill Aura loop
-RunService.Heartbeat:Connect(function()
-    if not Config.KillAura then
-        return
-    end
-    pcall(function()
-        if not RootPart then
-            return
-        end
-        local enemies = Workspace:FindFirstChild("Enemies")
-        if enemies then
-            for _, mob in pairs(enemies:GetChildren()) do
-                if mob:FindFirstChild("Humanoid") and mob.Humanoid.Health > 0 then
-                    local mobRoot = mob:FindFirstChild("HumanoidRootPart")
-                    if mobRoot then
-                        local dist = (RootPart.Position - mobRoot.Position).Magnitude
-                        if dist <= Config.AuraRange then
-                            bringMob(mob)
-                            attackMob(mob)
+task.spawn(function()
+    while true do
+        task.wait(0.1)
+        if Config.KillAura and RootPart then
+            pcall(function()
+                local enemies = Workspace:FindFirstChild("Enemies")
+                if enemies then
+                    for _, mob in pairs(enemies:GetChildren()) do
+                        if mob:FindFirstChild("Humanoid") and mob.Humanoid.Health > 0 then
+                            local mobRoot = mob:FindFirstChild("HumanoidRootPart")
+                            if mobRoot then
+                                local dist = (RootPart.Position - mobRoot.Position).Magnitude
+                                if dist <= Config.AuraRange then
+                                    bringMob(mob)
+                                    attackMob(mob)
+                                end
+                            end
                         end
                     end
                 end
-            end
+            end)
         end
-    end)
+    end
 end)
 
 -- SETTINGS
 local SettingsTab = createTab("Settings", "X")
 SettingsTab:Section("Interface")
 SettingsTab:Dropdown("UI Theme", {"Purple", "Blue", "Red", "Green", "Pink", "Orange", "Cyan"}, "Purple", function(opt)
-    Config.SelectedTheme = opt
     local preset = ThemePresets[opt]
     if preset then
         Theme.Accent = preset[1]
@@ -1826,30 +1755,21 @@ SettingsTab:Dropdown("UI Theme", {"Purple", "Blue", "Red", "Green", "Pink", "Ora
     end
 end)
 SettingsTab:Slider("UI Scale", 50, 150, 100, "%", function(val)
-    Config.UIScale = val / 100
-    TweenService:Create(UIScale, TweenInfo.new(0.2), {Scale = Config.UIScale}):Play()
+    TweenService:Create(UIScale, TweenInfo.new(0.2), {Scale = val / 100}):Play()
 end)
 SettingsTab:Section("System")
 SettingsTab:Toggle("Anti-AFK", "Prevents being kicked for inactivity", true, function(state)
     Config.AntiAFK = state
 end)
 SettingsTab:Button("Reset Window Position", function()
-    TweenService:Create(Window, TweenInfo.new(0.3), {
-        Position = UDim2.new(0.5, -320, 0.5, -210),
-    }):Play()
+    TweenService:Create(Window, TweenInfo.new(0.3), {Position = UDim2.new(0.5, -320, 0.5, -210)}):Play()
     notify("Settings", "Position reset", 2)
 end)
-SettingsTab:Button("Destroy UI", function()
-    ScreenGui:Destroy()
-end)
+SettingsTab:Button("Destroy UI", function() ScreenGui:Destroy() end)
 SettingsTab:Section("Keybinds")
-SettingsTab:Keybind("Toggle UI", Enum.KeyCode.RightShift, function()
-    Window.Visible = not Window.Visible
-end)
+SettingsTab:Keybind("Toggle UI", Enum.KeyCode.RightShift, function() Window.Visible = not Window.Visible end)
 
--- ============================================================
 -- ANTI-AFK
--- ============================================================
 LocalPlayer.Idled:Connect(function()
     if Config.AntiAFK then
         VirtualUser:CaptureController()
@@ -1857,22 +1777,22 @@ LocalPlayer.Idled:Connect(function()
     end
 end)
 
--- ============================================================
 -- KEYBIND
--- ============================================================
 UserInputService.InputBegan:Connect(function(input, gpe)
-    if gpe then
-        return
-    end
+    if gpe then return end
     if input.KeyCode == Enum.KeyCode.RightShift then
         Window.Visible = not Window.Visible
     end
 end)
 
--- ============================================================
 -- INIT
--- ============================================================
 task.wait(0.3)
 notify("Ebanat Hub", "Welcome, " .. LocalPlayer.Name .. "!", 4, "success")
 task.wait(1)
-notify("Loaded", "All systems operational", 3, "success")
+notify("Loaded", "v2.0 - All systems operational", 3, "success")
+
+-- Debug: Check if remotes were found
+task.wait(0.5)
+local commFStatus = getCommF() and "Found" or "Missing"
+local commEStatus = getCommE() and "Found" or "Missing"
+notify("Debug", "CommF: " .. commFStatus .. " | CommE: " .. commEStatus, 5, "warning")
